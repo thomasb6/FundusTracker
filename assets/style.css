@@ -1,5 +1,5 @@
 body {
-    background-color: #ecf0f1;  /* Un gris très pâle pour ne pas avoir un blanc éclatant */
+    background-color: #ecf0f1;
     margin: 0;
     font-family: "Poppins", sans-serif;
 }
@@ -7,27 +7,19 @@ body {
 .dashboard-container {
     max-width: 1400px;
     margin: 10px auto;
-    background-color: #dfe6e9;  /* Fond légèrement plus sombre que le body */
+    background-color: #dfe6e9;
     border: 1px solid #cccccc;
     padding: 15px;
     display: flex;
     justify-content: space-between;
 }
 
-.left-block  {
-    flex: 1;
-    padding: 15px;
-    color: #2d3436;  /* Gris foncé pour le texte */
-}
-
+/* --- Style des blocs principaux --- */
+.left-block,
 .middle-block,
 .right-block {
     flex: 1;
     padding: 15px;
-    color: #2d3436;
-}
-
-.right-block p {
     color: #2d3436;
 }
 
@@ -37,6 +29,21 @@ body {
     align-items: center;
 }
 
+/* --- Typographie --- */
+h1, h2, h3, p {
+    text-align: justify;
+    margin: 10px 0;
+}
+
+h1 { font-size: 32px; }
+h2 { font-size: 25px; }
+h3 { font-size: 14px; }
+p, .right-block p {
+    font-size: 16px;
+    color: #2d3436;
+}
+
+/* --- Composants --- */
 .graph-figure {
     width: 100%;
     max-width: 700px;
@@ -46,41 +53,61 @@ body {
 .upload-area {
     width: 100%;
     min-height: 60px;
-    border-width: 1px;
-    border-style: dashed;
+    border: 1px dashed #2d3436;
     border-radius: 5px;
     text-align: center;
     margin: 10px 0;
     padding: 10px;
-    background-color: #b2bec3;  /* Un gris bleuté pour adoucir l'arrière-plan */
+    background-color: #b2bec3;
     color: #2d3436;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-h1 {
-    font-size: 32px;
-    margin: 15px 0;
-    text-align: justify;
+.logo-container {
+    width: 100%;
+    background-color: #ecf0f1;
+    text-align: center;
+    padding: 10px 0;
 }
 
-h2 {
-    font-size: 25px;
-    margin: 15px 0;
-    text-align: justify;
+.footer {
+    font-size: 12px;
+    margin-top: 20px;
+    text-align: center;
+    color: #ffffff;
+    background-color: #636e72;
+    padding: 10px;
 }
 
-p {
-    font-size: 16px;
-    margin: 10px 0;
-    text-align: justify;
+
+/* --- Éléments de formulaire dans le bloc de droite --- */
+.right-block .form-control,
+.right-block .dropdown-menu,
+.right-block .upload-area,
+.right-block .btn {
+    width: 100%;
 }
 
-h3 {
+.right-block .form-check-input {
+    margin-right: 10px;
+    vertical-align: middle;
+    cursor: pointer;
+}
+
+.right-block .form-check-label {
+    vertical-align: middle;
+    text-align: left;
     font-size: 14px;
-    margin: 10px 0;
-    text-align: justify;
+    margin-left: 5px;
 }
 
-/* Responsivité */
+.rc-slider-mark {
+    display: none !important;
+}
+
+/* --- Design réactif --- */
 @media (max-width: 768px) {
     .dashboard-container {
         flex-direction: column;
@@ -94,80 +121,33 @@ h3 {
         margin: 10px 0;
     }
 
-    .graph-figure {
-        width: 100%;
-        height: auto;
-    }
-
-    h1 {
-        font-size: 24px;
-    }
-
-    p {
-        font-size: 14px;
-    }
+    h1 { font-size: 24px; }
+    p { font-size: 14px; }
 }
 
-/* Style du footer */
-.footer {
-    font-size: 12px;
-    margin-top: 20px;
-    text-align: center;
-    color: #ffffff;
-    background-color: #636e72;  /* Un gris moyen pour le footer */
-    padding: 10px;
-}
-
-.right-block .form-control,
-.right-block .dropdown-menu,
-.right-block .upload-area,
-.right-block .btn {
-    width: 100%;
-}
-
-.logo-container {
-    width: 100%;
-    background-color: #ecf0f1;
-    text-align: center;
-}
-
-
-.right-block .form-check-input {
-    margin-right: 10px;    /* Espace entre la case et le texte */
-    margin-left: 0;        /* Pas de marge à gauche pour un alignement cohérent */
-    vertical-align: middle;
-    cursor: pointer;
-}
-
-.right-block .form-check-label {
-    margin-bottom: 0;
-    vertical-align: middle;
-    text-align: left;
-    font-size: 14px;
-    margin-left: 15px;
-}
-
-.rc-slider-mark {
-    display: none !important;
-}
-
+/* --- Style pour l'impression --- */
 @media print {
-  body * {
-    visibility: hidden !important;
-  }
-  #pdf-report-section, #pdf-report-section * {
-    visibility: visible !important;
-  }
-  #pdf-report-section {
-    position: absolute !important;
-    left: 0; top: 0; width: 100vw; background: #fff;
-  }
-  #pdf-report-content {
-    display: block !important;
-    position: absolute !important;
-    left: 0; top: 0; width: 100vw;
-    background: #fff;
-    z-index: 99999;
-    visibility: visible !important;
-  }
+    body * {
+        visibility: hidden !important;
+    }
+    #pdf-report-section, #pdf-report-section * {
+        visibility: visible !important;
+    }
+    #pdf-report-section {
+        position: absolute !important;
+        left: 0;
+        top: 0;
+        width: 100vw;
+        background: #fff;
+    }
+    #pdf-report-content {
+        display: block !important;
+        position: absolute !important;
+        left: 0;
+        top: 0;
+        width: 100vw;
+        background: #fff;
+        z-index: 99999;
+        visibility: visible !important;
+    }
 }
