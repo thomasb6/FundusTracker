@@ -1,0 +1,484 @@
+# FundusTracker — Message catalog template
+# Copyright (C) 2025  Thomas Foulonneau
+# This file is distributed under the same license as the FundusTracker package.
+# Thomas Foulonneau <thomas-foulonneau@hotmail.fr>, 2025.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: FundusTracker 1.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-07-26 18:27+0200\n"
+"PO-Revision-Date: 2025-07-26 14:52+0200\n"
+"Last-Translator: Thomas Foulonneau <thomas-foulonneau@hotmail.fr>\n"
+"Language-Team: French <traduc@traduc.org>\n"
+"Language: fr\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+#: main.py:295
+msgid "grande"
+msgstr ""
+
+#: main.py:295
+msgid "atrophie"
+msgstr ""
+
+#: main.py:295
+msgid "pigment"
+msgstr ""
+
+#: main.py:295
+msgid "incertain"
+msgstr ""
+
+#: main.py:313 main.py:488
+msgid "Instructions d'utilisation"
+msgstr ""
+
+#: main.py:314
+msgid "1. Choisissez une image depuis le menu déroulant."
+msgstr ""
+
+#: main.py:315
+msgid "2. Tracez le contour du nerf optique et d'une lésion sur l'image."
+msgstr ""
+
+#: main.py:316
+msgid "3. Classez la zone en cliquant sur le type approprié."
+msgstr ""
+
+#: main.py:317
+msgid "Vous pouvez supprimer une zone en la sélectionnant."
+msgstr ""
+
+#: main.py:318
+msgid "Vous pouvez modifier une classification via le menu déroulant."
+msgstr ""
+
+#: main.py:319
+msgid "4. Exportez les résultats vers Excel pour obtenir un résumé."
+msgstr ""
+
+#: main.py:320
+msgid "5. Téléchargez les zones annotées."
+msgstr ""
+
+#: main.py:321
+msgid "Vous pouvez importer un fichier avec les zones annotées."
+msgstr ""
+
+#: main.py:335
+msgid "Choisir une image :"
+msgstr ""
+
+#: main.py:339 main.py:517
+msgid "Choisissez une image"
+msgstr ""
+
+#: main.py:341
+msgid "Ou chargez une image locale :"
+msgstr ""
+
+#: main.py:345
+msgid "Glissez-déposez une image ou "
+msgstr ""
+
+#: main.py:346
+msgid "cliquez ici"
+msgstr ""
+
+#: main.py:360
+msgid "Classification :"
+msgstr ""
+
+#: main.py:370
+msgid "Sélectionnez une zone à reclassifier"
+msgstr ""
+
+#: main.py:372
+msgid "Réinitialiser :"
+msgstr ""
+
+#: main.py:375
+msgid "Réinitialiser les zones annotées"
+msgstr ""
+
+#: main.py:377
+msgid "Exporter :"
+msgstr ""
+
+#: main.py:380
+msgid "Exporter les résultats dans un tableur"
+msgstr ""
+
+#: main.py:385
+msgid "Exporter les annotations"
+msgstr ""
+
+#: main.py:389
+msgid "Comparaison :"
+msgstr ""
+
+#: main.py:393
+msgid "Définir comme référence"
+msgstr ""
+
+#: main.py:399
+msgid "Ajouter à la comparaison"
+msgstr ""
+
+#: main.py:402
+msgid "Paramètres d'affichage :"
+msgstr ""
+
+#: main.py:411
+msgid "Afficher le numéro des zones sur le dessin"
+msgstr ""
+
+#: main.py:428
+msgid "Contour pointillé des formes"
+msgstr ""
+
+#: main.py:436
+msgid "Ajustements globaux :"
+msgstr ""
+
+#: main.py:440
+msgid "Ajouter le nerf optique"
+msgstr ""
+
+#: main.py:447
+msgid "Zoom global :"
+msgstr ""
+
+#: main.py:453
+msgid "Rotation globale (°) :"
+msgstr ""
+
+#: main.py:459
+msgid "Importer :"
+msgstr ""
+
+#: main.py:467
+msgid "Glissez-déposez ou sélectionnez un fichier annoté"
+msgstr ""
+
+#: main.py:489
+msgid "1. Choisissez une image."
+msgstr ""
+
+#: main.py:490
+msgid ""
+"2. Dessinez à main levée les zones d'intéret sur l’image pour donner des "
+"exemples."
+msgstr ""
+
+#: main.py:491
+msgid "3. Cliquez sur Segmenter pour lancer la segmentation automatique."
+msgstr ""
+
+#: main.py:492
+msgid ""
+"4. Vous pouvez ajouter d’autres traits et relancer la segmentation pour "
+"affiner."
+msgstr ""
+
+#: main.py:493
+msgid "5. Acceptez la segmentation pour travailler manuellement les zones."
+msgstr ""
+
+#: main.py:513
+msgid "Choix de l'image :"
+msgstr ""
+
+#: main.py:519
+msgid "Pinceau/étiquette :"
+msgstr ""
+
+#: main.py:523
+msgid "Papille (jaune)"
+msgstr ""
+
+#: main.py:524
+msgid "Lésion (rouge)"
+msgstr ""
+
+#: main.py:525
+msgid "Fond (vert)"
+msgstr ""
+
+#: main.py:530
+msgid "Taille du pinceau :"
+msgstr ""
+
+#: main.py:536
+msgid "Segmentation :"
+msgstr ""
+
+#: main.py:539
+msgid "Segmenter les zones dessinées"
+msgstr ""
+
+#: main.py:543
+msgid "Accepter la segmentation"
+msgstr ""
+
+#: main.py:545
+msgid "Réinitialisation"
+msgstr ""
+
+#: main.py:548
+msgid "Réinitialiser la segmentation"
+msgstr ""
+
+#: main.py:560
+msgid "Informations du patient"
+msgstr ""
+
+#: main.py:562
+msgid "Nom du patient :"
+msgstr ""
+
+#: main.py:563
+msgid "Nom"
+msgstr ""
+
+#: main.py:566
+msgid "Prénom du patient :"
+msgstr ""
+
+#: main.py:567
+msgid "Prénom"
+msgstr ""
+
+#: main.py:570
+msgid "Date de naissance :"
+msgstr ""
+
+#: main.py:574
+msgid "Date image de référence :"
+msgstr ""
+
+#: main.py:578
+msgid "Date image de comparaison :"
+msgstr ""
+
+#: main.py:584
+msgid "Enregistrer infos patient"
+msgstr ""
+
+#: main.py:613
+msgid "Exporter le rapport"
+msgstr ""
+
+#: main.py:648
+msgid "Segmentation semi-automatique"
+msgstr ""
+
+#: main.py:649
+msgid "Segmentation manuelle"
+msgstr ""
+
+#: main.py:650
+msgid "Comparaison"
+msgstr ""
+
+#: main.py:656 main.py:1726
+msgid "© 2025 – Réalisé par "
+msgstr ""
+
+#: main.py:663 main.py:1733
+msgid " – Interne, Ophtalmopôle de l'Hôpital Cochin, Paris"
+msgstr ""
+
+#: main.py:869
+msgid "Aucune segmentation ML détectée."
+msgstr ""
+
+#: main.py:883 main.py:948 main.py:973 main.py:983 main.py:1448 main.py:1466
+msgid "nerf optique"
+msgstr ""
+
+#: main.py:892
+msgid "segmentation-auto"
+msgstr ""
+
+#: main.py:907
+msgid "Glissez-déposez ou "
+msgstr ""
+
+#: main.py:908
+msgid "sélectionnez un fichier annoté"
+msgstr ""
+
+#: main.py:914
+msgid "Annotations réinitialisées."
+msgstr ""
+
+#: main.py:1048 main.py:1077 main.py:1156
+msgid "Zone"
+msgstr ""
+
+#: main.py:1051
+msgid "Résumé des zones annotées :"
+msgstr ""
+
+#: main.py:1157 main.py:1640
+msgid "Aire (pixels²)"
+msgstr ""
+
+#: main.py:1158
+msgid "Centroid X"
+msgstr ""
+
+#: main.py:1159
+msgid "Centroid Y"
+msgstr ""
+
+#: main.py:1160
+msgid "Classification"
+msgstr ""
+
+#: main.py:1161
+msgid "Grand Axe (pixels)"
+msgstr ""
+
+#: main.py:1162
+msgid "Petit Axe (pixels)"
+msgstr ""
+
+#: main.py:1163
+msgid "Angle (degrés) par rapport Nerf Optique"
+msgstr ""
+
+#: main.py:1171
+msgid "Zones"
+msgstr ""
+
+#: main.py:1293
+msgid "Ajoutez au moins 2 squiggles (fond + lésion)."
+msgstr ""
+
+#: main.py:1342
+msgid ""
+"Segmentation calculée ! Cliquez sur « Accepter comme zones » pour exporter "
+"les lésions."
+msgstr ""
+
+#: main.py:1375
+msgid "Ajouté comme image de référence !"
+msgstr ""
+
+#: main.py:1401
+msgid "Ajouté comme image de comparaison !"
+msgstr ""
+
+#: main.py:1435
+msgid "Image de référence"
+msgstr ""
+
+#: main.py:1436
+msgid "Image de comparaison"
+msgstr ""
+
+#: main.py:1486
+msgid "Les deux images doivent être ajoutées à la comparaison."
+msgstr ""
+
+#: main.py:1531
+#, python-brace-format
+msgid "**Variation d’aire totale :** {val:.1f} pixels²/mois"
+msgstr ""
+
+#: main.py:1533
+#, python-brace-format
+msgid "**Variation relative :** {val:.2f}%/mois"
+msgstr ""
+
+#: main.py:1537
+#, python-brace-format
+msgid "**Variation d’aire totale :** {val:.1f} pixels²/an"
+msgstr ""
+
+#: main.py:1539
+#, python-brace-format
+msgid "**Variation relative :** {val:.2f}%/an"
+msgstr ""
+
+#: main.py:1547
+msgid "Nombre de taches"
+msgstr ""
+
+#: main.py:1549
+msgid "Aire totale (pixels²)"
+msgstr ""
+
+#: main.py:1554
+msgid "Aire totale (% du nerf optique)"
+msgstr ""
+
+#: main.py:1555 main.py:1556
+msgid "Non calculé"
+msgstr ""
+
+#: main.py:1559
+msgid "Différence brute (Tx-T0)"
+msgstr ""
+
+#: main.py:1563
+msgid "p.value (diff. aire totale)"
+msgstr ""
+
+#: main.py:1564
+msgid "Non calculable"
+msgstr ""
+
+#: main.py:1585
+msgid "Synthèse de l'évolution"
+msgstr ""
+
+#: main.py:1606
+msgid "Aire totale"
+msgstr ""
+
+#: main.py:1616
+msgid "Aires lésionnelles T0"
+msgstr ""
+
+#: main.py:1624
+msgid "Aires lésionnelles Tx"
+msgstr ""
+
+#: main.py:1633
+msgid "Moyenne"
+msgstr ""
+
+#: main.py:1637
+#, python-brace-format
+msgid "Moyenne : %{y:.0f} pixels²"
+msgstr ""
+
+#: main.py:1641
+msgid "Date"
+msgstr ""
+
+#: main.py:1677
+msgid "Informations patient enregistrées !"
+msgstr ""
+
+#: main.py:1714
+#, python-brace-format
+msgid "Nom : {nom}"
+msgstr ""
+
+#: main.py:1715
+#, python-brace-format
+msgid "Prénom : {prenom}"
+msgstr ""
+
+#: main.py:1716
+#, python-brace-format
+msgid "Date de naissance : {dob}"
+msgstr ""
