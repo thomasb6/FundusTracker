@@ -5,7 +5,7 @@ document.addEventListener('keydown', function(event) {
         'g': 'grande',
         'a': 'atrophie',
         'p': 'pigment',
-        'i': 'incertain'
+        'n': 'nerf optique'
     };
 
     let key = event.key.toLowerCase();

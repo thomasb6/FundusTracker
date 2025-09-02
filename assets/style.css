@@ -151,3 +151,95 @@ p, .right-block p {
         visibility: visible !important;
     }
 }
+/* ================================================ */
+/* AMÉLIORATION DES FICHES PATIENT                */
+/* ================================================ */
+
+.patient-record-card .card-body {
+    padding: 0.5rem;
+}
+
+.patient-record-card .row {
+    align-items: center; /* Aligne verticalement l'image et le texte */
+}
+
+.patient-record-card .record-thumbnail {
+    padding-right: 0;
+    max-width: 200px; /* Limite la largeur de l'image */
+}
+
+.patient-record-card .record-info {
+    padding-left: 1.5rem;
+    font-size: 0.9rem; /* Réduit un peu la taille du texte */
+}
+
+.patient-record-card .record-info p {
+    margin-bottom: 0.5rem;
+    text-align: left;
+}
+/* ================================================ */
+/* MISE EN PAGE À DEUX COLONNES                   */
+/* ================================================ */
+
+.dashboard-container.two-columns {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start; /* Aligne les blocs en haut */
+}
+
+.two-columns .left-block {
+    flex: 1; /* Prend 1 part de l'espace */
+    max-width: 350px; /* Largeur fixe pour la colonne de gauche */
+    min-width: 300px;
+}
+
+.two-columns .main-content-block {
+    flex: 3; /* Prend 3 parts de l'espace, donc plus large */
+    padding: 0 15px; /* Ajoute un peu d'espace */
+}
+
+/* ================================================ */
+/* STYLES POUR L'EXPORT PDF DU RAPPORT PATIENT      */
+/* ================================================ */
+
+/* Cache tout par défaut lors de l'impression */
+@media print {
+    body > *:not(#pdf-patient-report-content) {
+        display: none !important;
+    }
+    #pdf-patient-report-content {
+        display: block !important;
+        visibility: visible !important;
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        background: white;
+        color: black;
+        font-family: Arial, sans-serif;
+    }
+    .report-header, .report-section {
+        padding: 20px;
+    }
+    .report-exam-card, .report-section {
+        page-break-inside: avoid; /* Essaye d'éviter de couper les éléments */
+        margin-bottom: 20px;
+    }
+    .card {
+        border: 1px solid #ddd !important;
+    }
+}
+
+/* Cache le conteneur du rapport en temps normal */
+#pdf-patient-report-content {
+    display: none;
+}
+
+/* Classe appliquée via JS pour préparer l'impression */
+body.print-active > *:not(#pdf-patient-report-content) {
+    visibility: hidden !important;
+}
+body.print-active #pdf-patient-report-content {
+    display: block !important;
+    visibility: visible !important;
+}
