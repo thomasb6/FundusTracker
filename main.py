@@ -1124,7 +1124,6 @@ def find_optic_nerve(shapes, language):
         if shape.get("customdata") == optic_nerve_label:
             return i, shape
     return None, None
-
 # ====================================================
 # CALLBACK 2 : GESTION DES ANNOTATIONS, CLASSIFICATIONS, RÉINITIALISATION ET UPLOAD
 # ====================================================
@@ -1132,9 +1131,8 @@ def find_optic_nerve(shapes, language):
     Output("stored-shapes", "data"),
     Output("output-area", "children"),
     Output("upload-div", "children"),
-    Output("file-dropdown", "value"),
-    Output("tab-value-store", "data"),
-    Output("annotation-image-store", "data", allow_duplicate=True), # NOUVEL OUTPUT
+    Output("file-dropdown", "value"),  # <-- Pour forcer l'image affichée côté manuel
+    Output("tab-value-store", "data"),  # <-- Pour forcer le switch d'onglet
     Input("add-nerf-optique-button", "n_clicks"),
     Input("fig-image", "relayoutData"),
     Input("reset-button", "n_clicks"),
@@ -1145,7 +1143,7 @@ def find_optic_nerve(shapes, language):
     State("stored-shapes", "data"),
     State("zone-selector", "value"),
     State("ml-segmentation-mask", "data"),
-    State("ml-file-dropdown", "value"),
+    State("ml-file-dropdown", "value"),  # On ajoute le nom du fichier ML comme state
     State("language-store", "data"),
     prevent_initial_call=True
 )
@@ -1204,7 +1202,7 @@ def update_shapes_combined(
                        children=html.Div([_('Glissez-déposez ou '), html.A(_('sélectionnez un fichier annoté'))]),
                        className="upload-area", multiple=False)
         ]
-        return [], _("Annotations réinitialisées."), new_upload, dash.no_update, dash.no_update, dash.no_update
+        return [], _("Annotations réinitialisées."), new_upload, dash.no_update, dash.no_update
 
     # ----- IMPORT JSON -----
     if trigger == "upload-annotations" and upload_contents:
@@ -1213,6 +1211,7 @@ def update_shapes_combined(
         try:
             new_annotations = json.loads(decoded.decode('utf-8'))
             optic_nerve_idx, _ = find_optic_nerve(new_annotations, language)
+            # Si un nerf optique existe et n'est pas en premier, on le déplace
             if optic_nerve_idx is not None and optic_nerve_idx > 0:
                 optic_nerve_shape = new_annotations.pop(optic_nerve_idx)
                 new_annotations.insert(0, optic_nerve_shape)
@@ -1221,10 +1220,11 @@ def update_shapes_combined(
             shapes = []
 
         summary = générer_resume(shapes, language)
-        return shapes, summary, new_upload, dash.no_update, dash.no_update, dash.no_update
+        return shapes, summary, new_upload, dash.no_update, dash.no_update
 
     # ----- OUVERTURE D’UNE IMAGE -----
     if trigger == "file-dropdown" and file_val:
+        # On ajoute le nerf optique seulement si il n'y en a pas déjà un
         optic_nerve_idx, _ = find_optic_nerve(shapes, language)
         if optic_nerve_idx is None:
             try:
@@ -1238,17 +1238,19 @@ def update_shapes_combined(
                 "line": {"color": "yellow", "width": 2, "dash": "dot"},
                 "customdata": optic_nerve_label, "editable": True, "layer": "above"
             }
+            # Insère le nerf optique au début de la liste
             shapes.insert(0, cercle_nerf)
 
         summary = générer_resume(shapes, language)
-        return shapes, summary, new_upload, dash.no_update, dash.no_update, dash.no_update
+        return shapes, summary, new_upload, dash.no_update, dash.no_update
 
     # ----- AJOUT MANUEL DU NERF OPTIQUE -----
     if trigger == "add-nerf-optique-button":
         optic_nerve_idx, _ = find_optic_nerve(shapes, language)
+        # Ne rien faire si un nerf optique est déjà présent
         if optic_nerve_idx is not None:
             summary = générer_resume(shapes, language)
-            return shapes, summary, new_upload, dash.no_update, dash.no_update, dash.no_update
+            return shapes, summary, new_upload, dash.no_update, dash.no_update
 
         image_id = file_val or None
         width, height = (700, 700)
@@ -1266,7 +1268,7 @@ def update_shapes_combined(
         }
         shapes.insert(0, cercle_nerf)
         summary = générer_resume(shapes, language)
-        return shapes, summary, new_upload, dash.no_update, dash.no_update, dash.no_update
+        return shapes, summary, new_upload, dash.no_update, dash.no_update
 
     # ----- CLASSIFICATION -----
     if isinstance(trigger, dict) and trigger.get("type") == "classify-button":
@@ -1274,71 +1276,63 @@ def update_shapes_combined(
         target_idx = selected_zone_idx if selected_zone_idx is not None else len(shapes) - 1
 
         if target_idx >= 0 and target_idx < len(shapes):
+            # Si on essaie de classifier une zone en "nerf optique"
             if label == optic_nerve_label:
                 optic_nerve_idx, _ = find_optic_nerve(shapes, language)
+                # S'il y a déjà un nerf optique et que ce n'est pas la zone qu'on modifie
                 if optic_nerve_idx is not None and optic_nerve_idx != target_idx:
+                    # Renvoyer une erreur et ne rien changer
                     summary = dbc.Alert(_("Un nerf optique existe déjà. Impossible d'en créer un second."),
                                         color="danger", duration=3000)
-                    return shapes, summary, new_upload, dash.no_update, dash.no_update, dash.no_update
+                    return shapes, summary, new_upload, dash.no_update, dash.no_update
                 else:
+                    # Déplacer la zone pour qu'elle devienne la première
                     shape_to_move = shapes.pop(target_idx)
                     shape_to_move["customdata"] = label
-                    shape_to_move["line"]["dash"] = "dot"
+                    shape_to_move["line"]["dash"] = "dot"  # Style visuel
                     shape_to_move["line"]["color"] = "yellow"
                     shapes.insert(0, shape_to_move)
             else:
+                # Classification normale pour les autres types
                 shapes[target_idx]["customdata"] = label
+                # S'assurer que le style n'est pas celui du nerf optique
                 shapes[target_idx]["line"]["dash"] = "dot"
                 shapes[target_idx]["line"]["color"] = "white"
 
         summary = générer_resume(shapes, language)
-        return shapes, summary, new_upload, dash.no_update, dash.no_update, dash.no_update
+        return shapes, summary, new_upload, dash.no_update, dash.no_update
 
     # ----- TRAÇAGE OU MODIFICATION DE SHAPE -----
-    if relayout_data:
-        # Cas 1: Une liste complète de formes est envoyée (après ajout/suppression via la barre d'outils)
-        if "shapes" in relayout_data:
-            new_plotly_shapes = relayout_data["shapes"]
-
-            # On reconstruit la liste de formes en préservant les métadonnées existantes.
-            # C'est une approche plus sûre qui évite la corruption des données lors d'une suppression.
-            updated_shapes = []
-            old_shapes_with_metadata = [s for s in shapes if s.get('customdata')]
-
-            # Compare les anciennes et nouvelles formes pour deviner lesquelles ont été supprimées
-            # (Cette approche simple suppose que l'ordre relatif est maintenu)
-            paths_new = {s.get('path', str(s)) for s in new_plotly_shapes}
-            remaining_old_shapes = [s for s in shapes if s.get('path', str(s)) in paths_new]
-
-            # Reconstruit la liste finale
-            for i, plotly_shape in enumerate(new_plotly_shapes):
-                new_shape = plotly_shape.copy()
-                if i < len(remaining_old_shapes):
-                    # Transfère les métadonnées de l'ancienne forme correspondante
-                    new_shape['customdata'] = remaining_old_shapes[i].get('customdata', _('Tache'))
-                    new_shape['unique_lesion_id'] = remaining_old_shapes[i].get('unique_lesion_id')
-                else:
-                    # C'est une nouvelle forme
-                    new_shape['customdata'] = _('Tache')
-                updated_shapes.append(new_shape)
-
-            shapes = updated_shapes
-
-        # Cas 2: Modification d'une seule propriété (ex: glisser un point)
+    if relayout_data and "shapes" in relayout_data:
+        new_plotly_shapes = relayout_data["shapes"]
+        # Cas d'un nouveau dessin
+        if len(new_plotly_shapes) > len(shapes):
+            new_shape_plotly = new_plotly_shapes[-1]
+            new_shape = {k: v for k, v in new_shape_plotly.items() if k not in ["customdata", "customid"]}
+            new_shape["customdata"] = _("Tache")  # Classification par défaut
+            shapes.append(new_shape)
+        # Cas d'une modification de forme existante
         else:
-            for key, val in relayout_data.items():
-                m = re.match(r"shapes\[(\d+)\]\.(\w+)", key)
-                if m:
-                    idx, prop = int(m.group(1)), m.group(2)
-                    if idx < len(shapes):
-                        shapes[idx][prop] = val
+            shapes = []
+            for i, sh_plotly in enumerate(new_plotly_shapes):
+                sh = stored_shapes[i].copy()
+                sh.update({k: v for k, v in sh_plotly.items() if k not in ["customdata", "customid"]})
+                shapes.append(sh)
 
-        # Réassigne les 'customid' pour maintenir un ordre cohérent
+    elif relayout_data:  # Modification plus fine (ex: drag)
+        for key, val in relayout_data.items():
+            m = re.match(r"shapes\[(\d+)\]\.(\w+)", key)
+            if m:
+                idx, prop = int(m.group(1)), m.group(2)
+                if idx < len(shapes):
+                    shapes[idx][prop] = val
+
+    # Toujours s'assurer que l'ID correspond à l'index+1
     for i, s in enumerate(shapes):
         s["customid"] = i + 1
 
     summary = générer_resume(shapes, language)
-    return shapes, summary, new_upload, dash.no_update, dash.no_update, dash.no_update
+    return shapes, summary, new_upload, dash.no_update, dash.no_update
 
 def générer_resume(shapes, language):
     _ = get_translator(language)
@@ -1655,7 +1649,6 @@ def update_ml_figure(file_val_dropdown, file_val_store, relayout_data, label, wi
     # CORRECTION : La valeur pour le dropdown (file_val) manquait dans le retour
     return fig, squiggles, file_val
 
-
 @app.callback(
     Output("ml-segment-result", "children"),
     Output("ml-image-graph", "figure", allow_duplicate=True),
@@ -1725,7 +1718,13 @@ def ml_run_segmentation(n_seg, n_reset, file_val, squiggles, language):
     mask_json = json.dumps(mask_pred.tolist())
     return html.Div(_("Segmentation calculée ! Cliquez sur « Accepter comme zones » pour exporter les lésions.")), fig, mask_json
 
-
+@app.callback(
+    Output("tabs", "value"),
+    Input("tab-value-store", "data"),
+    prevent_initial_call=True
+)
+def update_tabs(tab_value):
+    return tab_value
 
 @app.callback(
     Output("compare-shapes-right", "data"),
