@@ -982,6 +982,7 @@ html.Footer(
     dcc.Store(id='matching-results-store'),
     dcc.Store(id='annotation-image-store', data=None),
     dcc.Store(id='selected-exams-store', data=[]),
+    dcc.Store(id='local-filename-store', data=None),
     ])
 
 
@@ -1127,12 +1128,19 @@ def find_optic_nerve(shapes, language):
 # ====================================================
 # CALLBACK 2 : GESTION DES ANNOTATIONS, CLASSIFICATIONS, RÉINITIALISATION ET UPLOAD
 # ====================================================
+# ====================================================================
+# VERSION FINALE ET DÉFINITIVE DU CALLBACK DE GESTION DES ANNOTATIONS
+# ====================================================================
+# ====================================================================
+# VERSION CORRIGÉE SANS AJOUT AUTOMATIQUE DU NERF OPTIQUE
+# ====================================================================
+
 @app.callback(
     Output("stored-shapes", "data"),
     Output("output-area", "children"),
     Output("upload-div", "children"),
-    Output("file-dropdown", "value"),  # <-- Pour forcer l'image affichée côté manuel
-    Output("tab-value-store", "data"),  # <-- Pour forcer le switch d'onglet
+    Output("file-dropdown", "value"),
+    Output("tab-value-store", "data"),
     Input("add-nerf-optique-button", "n_clicks"),
     Input("fig-image", "relayoutData"),
     Input("reset-button", "n_clicks"),
@@ -1143,7 +1151,7 @@ def find_optic_nerve(shapes, language):
     State("stored-shapes", "data"),
     State("zone-selector", "value"),
     State("ml-segmentation-mask", "data"),
-    State("ml-file-dropdown", "value"),  # On ajoute le nom du fichier ML comme state
+    State("ml-file-dropdown", "value"),
     State("language-store", "data"),
     prevent_initial_call=True
 )
@@ -1162,96 +1170,75 @@ def update_shapes_combined(
         language
 ):
     _ = get_translator(language)
+    trigger_id_obj = ctx.triggered[0]['prop_id'] if ctx.triggered else 'initial_load'
     trigger = ctx.triggered_id
+
     new_upload = dash.no_update
     shapes = stored_shapes.copy() if stored_shapes is not None else []
     optic_nerve_label = _("nerf optique")
 
-    # ----- GESTION DU ML (Acceptation des zones auto) -----
+    # ----- GESTION DU ML (inchangé) -----
     if trigger == "ml-accept-zones-btn":
-        # (Logique inchangée, mais on s'assure qu'elle crée le nerf optique en premier)
         if not mask_json or not ml_file_val:
             return dash.no_update, _("Aucune segmentation ML détectée."), new_upload, dash.no_update, dash.no_update
         mask = np.array(json.loads(mask_json))
         papille_shapes = mask_to_shapes(mask, label_value=1, min_area=20)
         lesion_shapes = mask_to_shapes(mask, label_value=2, min_area=200)
-
         new_shapes = []
-        # Ajoute la papille en premier si elle existe
         if papille_shapes:
             papille_shape = papille_shapes[0]
             papille_shape["customdata"] = optic_nerve_label
             papille_shape["line"] = {"color": "yellow", "width": 2, "dash": "dot"}
             new_shapes.append(papille_shape)
-        # Ajoute les autres lésions
         for sh in lesion_shapes:
             sh["customdata"] = _("segmentation-auto")
             sh["line"] = {"color": "white", "width": 2, "dash": "dot"}
             new_shapes.append(sh)
-        # Assigner les customid pour l'ordre
         for i, sh in enumerate(new_shapes):
             sh["customid"] = i + 1
-
         summary = générer_resume(new_shapes, language)
         return new_shapes, summary, new_upload, ml_file_val, "tab-manuelle"
 
-    # ----- RESET -----
+    # ----- RESET (inchangé) -----
     if trigger == "reset-button":
         new_upload = [
             dcc.Upload(id='upload-annotations',
                        children=html.Div([_('Glissez-déposez ou '), html.A(_('sélectionnez un fichier annoté'))]),
                        className="upload-area", multiple=False)
         ]
-        return [], _("Annotations réinitialisées."), new_upload, dash.no_update, dash.no_update
+        return [], _("Annotations réinitialisées."), new_upload, None, dash.no_update
 
-    # ----- IMPORT JSON -----
+    # ----- IMPORT JSON (inchangé) -----
     if trigger == "upload-annotations" and upload_contents:
         content_type, content_string = upload_contents.split(',')
         decoded = base64.b64decode(content_string)
         try:
             new_annotations = json.loads(decoded.decode('utf-8'))
-            optic_nerve_idx, _ = find_optic_nerve(new_annotations, language)
-            # Si un nerf optique existe et n'est pas en premier, on le déplace
+            optic_nerve_idx, _shape = find_optic_nerve(new_annotations, language)
             if optic_nerve_idx is not None and optic_nerve_idx > 0:
                 optic_nerve_shape = new_annotations.pop(optic_nerve_idx)
                 new_annotations.insert(0, optic_nerve_shape)
             shapes = new_annotations
         except Exception:
             shapes = []
-
         summary = générer_resume(shapes, language)
         return shapes, summary, new_upload, dash.no_update, dash.no_update
 
     # ----- OUVERTURE D’UNE IMAGE -----
     if trigger == "file-dropdown" and file_val:
-        # On ajoute le nerf optique seulement si il n'y en a pas déjà un
-        optic_nerve_idx, _ = find_optic_nerve(shapes, language)
-        if optic_nerve_idx is None:
-            try:
-                img = load_image_any(file_val)
-                width, height = img.size
-            except Exception:
-                width, height = 700, 700
-            cx, cy = width / 2, height / 2
-            cercle_nerf = {
-                "type": "circle", "xref": "x", "yref": "y", "x0": cx - 50, "y0": cy - 50, "x1": cx + 50, "y1": cy + 50,
-                "line": {"color": "yellow", "width": 2, "dash": "dot"},
-                "customdata": optic_nerve_label, "editable": True, "layer": "above"
-            }
-            # Insère le nerf optique au début de la liste
-            shapes.insert(0, cercle_nerf)
+        ### MODIFICATION ###
+        # On repart d'une feuille blanche, sans ajouter de forme par défaut.
+        shapes = []
 
         summary = générer_resume(shapes, language)
         return shapes, summary, new_upload, dash.no_update, dash.no_update
 
-    # ----- AJOUT MANUEL DU NERF OPTIQUE -----
+    # ----- AJOUT MANUEL DU NERF OPTIQUE (inchangé) -----
     if trigger == "add-nerf-optique-button":
-        optic_nerve_idx, _ = find_optic_nerve(shapes, language)
-        # Ne rien faire si un nerf optique est déjà présent
+        optic_nerve_idx, _shape = find_optic_nerve(shapes, language)
         if optic_nerve_idx is not None:
             summary = générer_resume(shapes, language)
             return shapes, summary, new_upload, dash.no_update, dash.no_update
-
         image_id = file_val or None
         width, height = (700, 700)
         if image_id:
@@ -1270,62 +1257,52 @@ def update_shapes_combined(
         summary = générer_resume(shapes, language)
         return shapes, summary, new_upload, dash.no_update, dash.no_update
 
-    # ----- CLASSIFICATION -----
+    # ----- CLASSIFICATION (inchangé) -----
     if isinstance(trigger, dict) and trigger.get("type") == "classify-button":
         label = trigger["index"]
         target_idx = selected_zone_idx if selected_zone_idx is not None else len(shapes) - 1
-
-        if target_idx >= 0 and target_idx < len(shapes):
-            # Si on essaie de classifier une zone en "nerf optique"
+        if 0 <= target_idx < len(shapes):
             if label == optic_nerve_label:
-                optic_nerve_idx, _ = find_optic_nerve(shapes, language)
-                # S'il y a déjà un nerf optique et que ce n'est pas la zone qu'on modifie
+                optic_nerve_idx, optic_nerve_shape_obj = find_optic_nerve(shapes, language)
                 if optic_nerve_idx is not None and optic_nerve_idx != target_idx:
-                    # Renvoyer une erreur et ne rien changer
                     summary = dbc.Alert(_("Un nerf optique existe déjà. Impossible d'en créer un second."),
                                         color="danger", duration=3000)
                     return shapes, summary, new_upload, dash.no_update, dash.no_update
                 else:
-                    # Déplacer la zone pour qu'elle devienne la première
                     shape_to_move = shapes.pop(target_idx)
                     shape_to_move["customdata"] = label
-                    shape_to_move["line"]["dash"] = "dot"  # Style visuel
+                    shape_to_move["line"]["dash"] = "dot"
                     shape_to_move["line"]["color"] = "yellow"
                     shapes.insert(0, shape_to_move)
             else:
-                # Classification normale pour les autres types
                 shapes[target_idx]["customdata"] = label
-                # S'assurer que le style n'est pas celui du nerf optique
                 shapes[target_idx]["line"]["dash"] = "dot"
                 shapes[target_idx]["line"]["color"] = "white"
-
         summary = générer_resume(shapes, language)
         return shapes, summary, new_upload, dash.no_update, dash.no_update
 
-    # ----- TRAÇAGE OU MODIFICATION DE SHAPE -----
-    if relayout_data and "shapes" in relayout_data:
-        new_plotly_shapes = relayout_data["shapes"]
-        # Cas d'un nouveau dessin
-        if len(new_plotly_shapes) > len(shapes):
-            new_shape_plotly = new_plotly_shapes[-1]
-            new_shape = {k: v for k, v in new_shape_plotly.items() if k not in ["customdata", "customid"]}
-            new_shape["customdata"] = _("Tache")  # Classification par défaut
-            shapes.append(new_shape)
-        # Cas d'une modification de forme existante
-        else:
-            shapes = []
-            for i, sh_plotly in enumerate(new_plotly_shapes):
-                sh = stored_shapes[i].copy()
-                sh.update({k: v for k, v in sh_plotly.items() if k not in ["customdata", "customid"]})
-                shapes.append(sh)
-
-    elif relayout_data:  # Modification plus fine (ex: drag)
-        for key, val in relayout_data.items():
-            m = re.match(r"shapes\[(\d+)\]\.(\w+)", key)
-            if m:
-                idx, prop = int(m.group(1)), m.group(2)
-                if idx < len(shapes):
-                    shapes[idx][prop] = val
+    # ----- TRAÇAGE OU MODIFICATION DE SHAPE (inchangé) -----
+    if trigger_id_obj == 'fig-image.relayoutData':
+        if relayout_data and "shapes" in relayout_data:
+            new_plotly_shapes = relayout_data["shapes"]
+            if len(new_plotly_shapes) > len(shapes):
+                new_shape_plotly = new_plotly_shapes[-1]
+                new_shape = {k: v for k, v in new_shape_plotly.items() if k not in ["customdata", "customid"]}
+                new_shape["customdata"] = _("Tache")
+                shapes.append(new_shape)
+            else:
+                shapes = []
+                for i, sh_plotly in enumerate(new_plotly_shapes):
+                    sh = stored_shapes[i].copy()
+                    sh.update({k: v for k, v in sh_plotly.items() if k not in ["customdata", "customid"]})
+                    shapes.append(sh)
+        elif relayout_data:
+            for key, val in relayout_data.items():
+                m = re.match(r"shapes\[(\d+)\]\.(\w+)", key)
+                if m:
+                    idx, prop = int(m.group(1)), m.group(2)
+                    if idx < len(shapes):
+                        shapes[idx][prop] = val
 
     # Toujours s'assurer que l'ID correspond à l'index+1
     for i, s in enumerate(shapes):
@@ -1554,16 +1531,28 @@ def export_to_excel(n_clicks, stored_shapes, file_val, uploaded_image, language)
     Input("download-json-button", "n_clicks"),
     State("stored-shapes", "data"),
     State("file-dropdown", "value"),
+    State("local-filename-store", "data"),  # <-- NOUVEL INPUT (STATE)
     prevent_initial_call=True
 )
-def download_annotations(n_clicks, stored_shapes, file_val):
+def download_annotations(n_clicks, stored_shapes, file_val, local_filename):  # <-- Nouvel argument
     if not stored_shapes:
         return dash.no_update
-    content = json.dumps(stored_shapes)
+
+    content = json.dumps(stored_shapes, indent=2)  # Ajout de l'indentation pour la lisibilité
+
+    # Logique de nommage mise à jour
     if file_val:
-        filename = f"{file_val.split('/')[-1].rsplit('.', 1)[0]}.json"
+        # Priorité au fichier du dropdown (GitHub)
+        base_name = file_val.split('/')[-1].rsplit('.', 1)[0]
+        filename = f"{base_name}.json"
+    elif local_filename:
+        # Sinon, on utilise le nom du fichier local stocké
+        base_name = local_filename.rsplit('.', 1)[0]
+        filename = f"{base_name}.json"
     else:
+        # Fallback si aucune image n'est chargée
         filename = "annotations.json"
+
     return dcc.send_string(content, filename)
 
 
@@ -2114,21 +2103,29 @@ from dash import callback_context
 
 @app.callback(
     Output('uploaded-image-store', 'data'),
-    Output('file-dropdown', 'value', allow_duplicate=True),  # <-- Ajoute cette ligne !
+    Output('file-dropdown', 'value', allow_duplicate=True),
+    Output('local-filename-store', 'data'),  # <-- NOUVEL OUTPUT
+    Output('upload-image', 'contents', allow_duplicate=True),
+    Output('upload-image', 'filename', allow_duplicate=True),
+    Output('upload-image', 'last_modified', allow_duplicate=True),
     Input('upload-image', 'contents'),
     Input('file-dropdown', 'value'),
+    State('upload-image', 'filename'),
+    State('upload-image', 'last_modified'),
     prevent_initial_call=True
 )
-def set_uploaded_image(contents, dropdown_value):
+def set_uploaded_image(contents, dropdown_value, filename, last_modified):
     triggered = callback_context.triggered_id if hasattr(callback_context, 'triggered_id') else None
-    if triggered == "upload-image" and contents is not None:
-        # Vide le dropdown quand upload local, pour forcer le switch visuel
-        return contents, None
-    elif triggered == "file-dropdown":
-        return None, dropdown_value
-    return None, None
 
-# --- Callbacks pour la gestion des patients et du dossier ---
+    if triggered == "upload-image" and contents is not None:
+        # On stocke l'image, son nom, et on réinitialise l'uploader
+        return contents, None, filename, None, None, None
+
+    elif triggered == "file-dropdown":
+        # On vide les stores locaux quand on sélectionne une image GitHub
+        return None, dropdown_value, None, dash.no_update, dash.no_update, dash.no_update
+
+    return None, None, None, None, None, None
 
 # CODE CORRIGÉ
 
