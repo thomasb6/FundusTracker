@@ -502,7 +502,7 @@ external_stylesheets = [
 app = Dash(
     __name__,
     external_stylesheets=external_stylesheets,
-    title="FundusTracker - Analyse et Segmentation de Fond d'Oeil",
+    title="FundusTracker - Analyse et Segmentation du Fond d'Oeil",
     meta_tags=[
         {
             "name": "description",
