@@ -689,35 +689,6 @@ def serve_layout(language):
                                     className="mb-2",
                                 ),
                                 dcc.Download(id="download-json"),
-                                html.P(_("Comparaison :")),
-                                dbc.Button(
-                                    [
-                                        html.I(
-                                            id="added-to-compare-feedback-left",
-                                            className="fas fa-flag-checkered",
-                                            style={"marginRight": "6px"},
-                                        ),
-                                        _("Définir comme référence"),
-                                    ],
-                                    id="add-to-compare-left",
-                                    color="info",
-                                    className="mb-2",
-                                    style={"width": "100%"},
-                                ),
-                                dbc.Button(
-                                    [
-                                        html.I(
-                                            id="added-to-compare-feedback-right",
-                                            className="fas fa-chart-line ",
-                                            style={"marginRight": "6px"},
-                                        ),
-                                        _("Ajouter à la comparaison"),
-                                    ],
-                                    id="add-to-compare-right",
-                                    color="info",
-                                    className="mb-2",
-                                    style={"width": "100%"},
-                                ),
                                 html.P(_("Paramètres d'affichage :")),
                                 html.Div(
                                     [
