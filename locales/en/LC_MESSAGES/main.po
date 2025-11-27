@@ -1,0 +1,1021 @@
+# English translations for FundusTracker package.
+# Copyright (C) 2025
+# This file is distributed under the same license as the FundusTracker package.
+# FIRST AUTHOR thomas-foulonneau@hotmail.fr, 2025.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: FundusTracker 1.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-08-12 09:59+0200\n"
+"PO-Revision-Date: 2025-08-12 11:00+0200\n"
+"Last-Translator: Thomas Foulonneau <thomas-foulonneau@hotmail.fr>\n"
+"Language-Team: English\n"
+"Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: main_V2.py:99 main_V2.py:2624 main_V2.py:2626 main_V2.py:2648
+#: main_V2.py:3143
+msgid "Initial"
+msgstr "Initial"
+
+#: main_V2.py:100 main_V2.py:145 main_V2.py:2624 main_V2.py:2626
+#: main_V2.py:2648
+msgid "Apparition"
+msgstr "New"
+
+#: main_V2.py:101 main_V2.py:134 main_V2.py:2624 main_V2.py:2627
+#: main_V2.py:2653
+msgid "Stabilité"
+msgstr "Stable"
+
+#: main_V2.py:102 main_V2.py:134 main_V2.py:2624 main_V2.py:2627
+#: main_V2.py:2653
+msgid "Progression"
+msgstr "Progressed"
+
+#: main_V2.py:421
+msgid "grande"
+msgstr "large"
+
+#: main_V2.py:421
+msgid "atrophie"
+msgstr "atrophy"
+
+#: main_V2.py:421
+msgid "pigment"
+msgstr "pigment"
+
+#: main_V2.py:421 main_V2.py:1122 main_V2.py:1170 main_V2.py:1397
+#: main_V2.py:1811 main_V2.py:1829 main_V2.py:3627 main_V2.py:3634
+msgid "nerf optique"
+msgstr "optic nerve"
+
+#: main_V2.py:438 main_V2.py:618
+msgid "Instructions d'utilisation"
+msgstr "Instructions"
+
+#: main_V2.py:439
+msgid "1. Choisissez une image depuis le menu déroulant."
+msgstr "1. Select an image from the dropdown menu."
+
+#: main_V2.py:440
+msgid "2. Tracez le contour du nerf optique et d'une lésion sur l'image."
+msgstr "2. Delineate the optic nerve and any lesions on the image."
+
+#: main_V2.py:441
+msgid "3. Classez la zone en cliquant sur le type approprié."
+msgstr "3. Classify the region by clicking the appropriate type."
+
+#: main_V2.py:442
+msgid "Vous pouvez supprimer une zone en la sélectionnant."
+msgstr "You can delete an annotation by selecting it."
+
+#: main_V2.py:443
+msgid "Vous pouvez modifier une classification via le menu déroulant."
+msgstr "You can reclassify an annotation using the dropdown menu."
+
+#: main_V2.py:444
+msgid "4. Exportez les résultats vers Excel pour obtenir un résumé."
+msgstr "4. Export the results to a spreadsheet for analysis."
+
+#: main_V2.py:445
+msgid "5. Téléchargez les zones annotées."
+msgstr "5. Download the annotations file."
+
+#: main_V2.py:446
+msgid "Vous pouvez importer un fichier avec les zones annotées."
+msgstr "You can also import a previously saved annotation file."
+
+#: main_V2.py:458 main_V2.py:2227
+msgid "Choisir une image :"
+msgstr "Select image:"
+
+#: main_V2.py:462 main_V2.py:645
+msgid "Choisissez une image"
+msgstr "Choose an image"
+
+#: main_V2.py:464
+msgid "Ou chargez une image locale :"
+msgstr "Or upload a local image:"
+
+#: main_V2.py:468
+msgid "Glissez-déposez une image ou "
+msgstr "Drag and drop an image or "
+
+#: main_V2.py:469
+msgid "cliquez ici"
+msgstr "click here"
+
+#: main_V2.py:483
+msgid "Classification :"
+msgstr "Classification:"
+
+#: main_V2.py:493
+msgid "Sélectionnez une zone à reclassifier"
+msgstr "Select annotation to reclassify"
+
+#: main_V2.py:495
+msgid "Réinitialiser :"
+msgstr "Reset:"
+
+#: main_V2.py:498
+msgid "Réinitialiser les zones annotées"
+msgstr "Reset annotations"
+
+#: main_V2.py:500
+msgid "Exporter :"
+msgstr "Export:"
+
+#: main_V2.py:503
+msgid "Exporter les résultats dans un tableur"
+msgstr "Export results to spreadsheet"
+
+#: main_V2.py:508
+msgid "Exporter les annotations"
+msgstr "Export annotations (JSON)"
+
+#: main_V2.py:511
+msgid "Comparaison :"
+msgstr "Comparison:"
+
+#: main_V2.py:515
+msgid "Définir comme référence"
+msgstr "Set as reference"
+
+#: main_V2.py:520
+msgid "Ajouter à la comparaison"
+msgstr "Add to comparison"
+
+#: main_V2.py:522
+msgid "Paramètres d'affichage :"
+msgstr "Display settings:"
+
+#: main_V2.py:531
+msgid "Afficher le numéro des zones sur le dessin"
+msgstr "Show annotation numbers on image"
+
+#: main_V2.py:546
+msgid "Contour pointillé des formes"
+msgstr "Dashed outlines for shapes"
+
+#: main_V2.py:553
+msgid "Ajustements globaux :"
+msgstr "Image adjustments:"
+
+#: main_V2.py:557
+msgid "Ajouter le nerf optique"
+msgstr "Add optic nerve"
+
+#: main_V2.py:564
+msgid "Zoom global :"
+msgstr "Global zoom:"
+
+#: main_V2.py:570
+msgid "Rotation globale (°) :"
+msgstr "Global rotation (°):"
+
+#: main_V2.py:576
+msgid "Gestion Patient :"
+msgstr "Patient management:"
+
+#: main_V2.py:579
+msgid "Date de l'examen..."
+msgstr "Exam date..."
+
+#: main_V2.py:584
+msgid "Sauvegarder dans le dossier patient"
+msgstr "Save to patient record"
+
+#: main_V2.py:590
+msgid "Importer :"
+msgstr "Import:"
+
+#: main_V2.py:598
+msgid "Glissez-déposez ou sélectionnez un fichier annoté"
+msgstr "Drag and drop or select an annotation file (.json)"
+
+#: main_V2.py:619
+msgid "1. Choisissez une image."
+msgstr "1. Select an image."
+
+#: main_V2.py:620
+msgid ""
+"2. Dessinez à main levée les zones d'intéret sur l’image pour donner des "
+"exemples."
+msgstr ""
+"2. Draw ‘scribbles’ on the image to label examples of each tissue type."
+
+#: main_V2.py:621
+msgid "3. Cliquez sur Segmenter pour lancer la segmentation automatique."
+msgstr "3. Click “Segment” to run the automatic segmentation."
+
+#: main_V2.py:622
+msgid ""
+"4. Vous pouvez ajouter d’autres traits et relancer la segmentation pour "
+"affiner."
+msgstr "4. Add more scribbles and rerun segmentation to refine the result."
+
+#: main_V2.py:623
+msgid "5. Acceptez la segmentation pour travailler manuellement les zones."
+msgstr "5. Accept the segmentation to convert it into editable annotations."
+
+#: main_V2.py:641
+msgid "Choix de l'image :"
+msgstr "Image selection:"
+
+#: main_V2.py:647
+msgid "Pinceau/étiquette :"
+msgstr "Brush label:"
+
+#: main_V2.py:651
+msgid "Papille (jaune)"
+msgstr "Optic disc (yellow)"
+
+#: main_V2.py:652
+msgid "Lésion (rouge)"
+msgstr "Lesion (red)"
+
+#: main_V2.py:653
+msgid "Fond (vert)"
+msgstr "Background (green)"
+
+#: main_V2.py:658
+msgid "Taille du pinceau :"
+msgstr "Brush size:"
+
+#: main_V2.py:664
+msgid "Segmentation :"
+msgstr "Segmentation:"
+
+#: main_V2.py:667
+msgid "Segmenter les zones dessinées"
+msgstr "Segment"
+
+#: main_V2.py:671
+msgid "Accepter la segmentation"
+msgstr "Accept segmentation"
+
+#: main_V2.py:673
+msgid "Réinitialisation"
+msgstr "Reset"
+
+#: main_V2.py:676
+msgid "Réinitialiser la segmentation"
+msgstr "Reset segmentation"
+
+#: main_V2.py:689
+msgid "Gestion du Patient"
+msgstr "Patient management"
+
+#: main_V2.py:691
+msgid "Saisir un nouveau patient :"
+msgstr "Enter a new patient:"
+
+#: main_V2.py:692 main_V2.py:821 main_V2.py:2349
+msgid "Nom"
+msgstr "Last name"
+
+#: main_V2.py:694 main_V2.py:825 main_V2.py:2353
+msgid "Prénom"
+msgstr "First name"
+
+#: main_V2.py:696 main_V2.py:697 main_V2.py:2357 main_V2.py:3334
+#: main_V2.py:3576
+msgid "Date de naissance"
+msgstr "Date of birth"
+
+#: main_V2.py:699 main_V2.py:2361
+msgid "Sexe"
+msgstr "Sex"
+
+#: main_V2.py:703 main_V2.py:2365
+msgid "Non spécifié"
+msgstr "Unspecified"
+
+#: main_V2.py:704 main_V2.py:2366
+msgid "Homme"
+msgstr "Male"
+
+#: main_V2.py:705 main_V2.py:2367
+msgid "Femme"
+msgstr "Female"
+
+#: main_V2.py:711
+msgid "Créer un nouveau patient"
+msgstr "Create a new patient"
+
+#: main_V2.py:715
+msgid "Importer un dossier patient (.json) :"
+msgstr "Import a patient record (.json):"
+
+#: main_V2.py:720
+msgid "Sélectionner un fichier"
+msgstr "Select a file"
+
+#: main_V2.py:727
+msgid "Ou sélectionner un patient existant :"
+msgstr "Or select an existing patient:"
+
+#: main_V2.py:728
+msgid "Choisir un patient"
+msgstr "Select a patient"
+
+#: main_V2.py:730
+msgid "Exporter le dossier du patient"
+msgstr "Export patient record"
+
+#: main_V2.py:736
+msgid "Exporter le rapport PDF"
+msgstr "Generate PDF report"
+
+#: main_V2.py:749
+msgid "Dossier patient"
+msgstr "Patient record"
+
+#: main_V2.py:756
+msgid "Trier par :"
+msgstr "Sort by:"
+
+#: main_V2.py:760 main_V2.py:2003
+msgid "Date"
+msgstr "Date"
+
+#: main_V2.py:761
+msgid "Nb lésions"
+msgstr "Lesion count"
+
+#: main_V2.py:762 main_V2.py:1968 main_V2.py:2295 main_V2.py:2599
+#: main_V2.py:2614 main_V2.py:3641
+msgid "Aire totale"
+msgstr "Total area"
+
+#: main_V2.py:771
+msgid "Tout sélectionner"
+msgstr "Select all"
+
+#: main_V2.py:773
+msgid "Tout désélectionner"
+msgstr "Deselect all"
+
+#: main_V2.py:785
+msgid "Atelier d'appariement en chaîne"
+msgstr "Chained Matching Workshop"
+
+#: main_V2.py:796 main_V2.py:3669
+msgid "Analyse longitudinale"
+msgstr "Longitudinal Analysis"
+
+#: main_V2.py:798
+msgid ""
+"Cette section présente l'analyse longitudinale des examens sélectionnés dans "
+"le dossier patient."
+msgstr ""
+"This section presents the longitudinal analysis of the exams selected in the "
+"patient record."
+
+#: main_V2.py:801 main_V2.py:3678
+msgid "Évolution agrégée des lésions"
+msgstr "Aggregated lesion area progression"
+
+#: main_V2.py:804 main_V2.py:3688
+msgid "Flux évolutif des lésions"
+msgstr "Lesion evolution flow"
+
+#: main_V2.py:807
+msgid "Analyses statistique"
+msgstr "Statistical Analysis"
+
+#: main_V2.py:818
+msgid "Informations du patient"
+msgstr "Patient information"
+
+#: main_V2.py:820
+msgid "Nom du patient :"
+msgstr "Patient last name:"
+
+#: main_V2.py:824
+msgid "Prénom du patient :"
+msgstr "Patient first name:"
+
+#: main_V2.py:828
+msgid "Date de naissance :"
+msgstr "Date of birth:"
+
+#: main_V2.py:832
+msgid "Date image de référence :"
+msgstr "Reference image date:"
+
+#: main_V2.py:836
+msgid "Date image de comparaison :"
+msgstr "Comparison image date:"
+
+#: main_V2.py:842
+msgid "Enregistrer infos patient"
+msgstr "Save patient information"
+
+#: main_V2.py:868
+msgid "Lancer l'Appariement Automatique"
+msgstr "Run automatic matching"
+
+#: main_V2.py:880
+msgid "Proposition d'Appariement Automatique"
+msgstr "Automatic matching proposal"
+
+#: main_V2.py:883 main_V2.py:2932 main_V2.py:2951 main_V2.py:2961
+msgid "Fermer"
+msgstr "Close"
+
+#: main_V2.py:894
+msgid "Exporter le rapport"
+msgstr "Generate PDF report"
+
+#: main_V2.py:926
+msgid "Segmentation semi-automatique"
+msgstr "Semi-automatic segmentation"
+
+#: main_V2.py:927
+msgid "Segmentation manuelle"
+msgstr "Manual segmentation"
+
+#: main_V2.py:928
+msgid "Suivi de patients"
+msgstr "Patient follow-up"
+
+#: main_V2.py:934 main_V2.py:2088
+msgid "© 2025 – Réalisé par "
+msgstr "© 2025 – Developed by "
+
+#: main_V2.py:941 main_V2.py:2095
+msgid " – Interne, Ophtalmopôle de l'Hôpital Cochin, Paris"
+msgstr " – Resident, Ophtalmopôle, Cochin Hospital, Paris, France"
+
+#: main_V2.py:1175
+msgid "Aucune segmentation ML détectée."
+msgstr "No machine learning segmentation was found."
+
+#: main_V2.py:1187
+msgid "segmentation-auto"
+msgstr "auto-segmented"
+
+#: main_V2.py:1201
+msgid "Glissez-déposez ou "
+msgstr "Drag and drop or "
+
+#: main_V2.py:1201
+msgid "sélectionnez un fichier annoté"
+msgstr "select an annotation file"
+
+#: main_V2.py:1204
+msgid "Annotations réinitialisées."
+msgstr "Annotations have been reset."
+
+#: main_V2.py:1277
+msgid "Un nerf optique existe déjà. Impossible d'en créer un second."
+msgstr "An optic nerve already exists. A second one cannot be created."
+
+#: main_V2.py:1300
+msgid "Tache"
+msgstr "Lesion"
+
+#: main_V2.py:1338 main_V2.py:1367 main_V2.py:1421 main_V2.py:1505
+#: main_V2.py:1518
+msgid "Zone"
+msgstr "Zone"
+
+#: main_V2.py:1341
+msgid "Résumé des zones annotées :"
+msgstr "Annotation summary:"
+
+#: main_V2.py:1417
+msgid "Nerf Optique Dessiné"
+msgstr "Drawn Optic Nerve"
+
+#: main_V2.py:1421 main_V2.py:1505 main_V2.py:1518
+msgid "Classification"
+msgstr "Classification"
+
+#: main_V2.py:1421
+msgid "Nerf Optique (Référence)"
+msgstr "Optic Nerve (Reference)"
+
+#: main_V2.py:1422 main_V2.py:1506 main_V2.py:1518 main_V2.py:2002
+msgid "Aire (pixels²)"
+msgstr "Area (pixels²)"
+
+#: main_V2.py:1422 main_V2.py:1506 main_V2.py:1519
+msgid "Référence de Calcul"
+msgstr "Calculation Reference"
+
+#: main_V2.py:1423 main_V2.py:1507 main_V2.py:1519
+msgid "Distance au Nerf Optique (pixels)"
+msgstr "Distance to Optic Nerve (pixels)"
+
+#: main_V2.py:1424 main_V2.py:1508 main_V2.py:1520
+msgid "Grand Axe (pixels)"
+msgstr "Major axis (pixels)"
+
+#: main_V2.py:1424 main_V2.py:1508 main_V2.py:1520
+msgid "Petit Axe (pixels)"
+msgstr "Minor axis (pixels)"
+
+#: main_V2.py:1425 main_V2.py:1509 main_V2.py:1521
+msgid "Indice d'Élongation"
+msgstr "Elongation Index"
+
+#: main_V2.py:1425 main_V2.py:1510 main_V2.py:1521
+msgid "Indice de Circularité"
+msgstr "Circularity Index"
+
+#: main_V2.py:1426 main_V2.py:1511 main_V2.py:1522
+msgid "Alignement Radial (degrés)"
+msgstr "Radial Alignment (degrees)"
+
+#: main_V2.py:1436
+msgid "Centre de l'Image (Fallback)"
+msgstr "Image Center (Fallback)"
+
+#: main_V2.py:1439
+msgid "Centre par Défaut (Fallback)"
+msgstr "Default Center (Fallback)"
+
+#: main_V2.py:1531
+msgid "Analyse Complète"
+msgstr "Full Analysis"
+
+#: main_V2.py:1656
+msgid "Dessinez au moins 2 catégories à segmenter (ex. Fond + Lésion)"
+msgstr "Draw at least two categories to segment (e.g., Background + Lesion)"
+
+#: main_V2.py:1705
+msgid ""
+"Segmentation calculée ! Cliquez sur « Accepter comme zones » pour exporter "
+"les lésions."
+msgstr ""
+"Segmentation complete! Click “Accept segmentation” to convert to editable "
+"annotations."
+
+#: main_V2.py:1738
+msgid "Ajouté comme image de référence !"
+msgstr "Reference image set."
+
+#: main_V2.py:1764
+msgid "Ajouté comme image de comparaison !"
+msgstr "Comparison image set."
+
+#: main_V2.py:1798
+msgid "Image de référence"
+msgstr "Reference image"
+
+#: main_V2.py:1799
+msgid "Image de comparaison"
+msgstr "Comparison image"
+
+#: main_V2.py:1850
+msgid "Les deux images doivent être ajoutées à la comparaison."
+msgstr ""
+"Both reference and comparison images must be set to generate a summary."
+
+#: main_V2.py:1890
+#, python-brace-format
+msgid "**Variation d’aire totale :** {val:.1f} pixels²/mois"
+msgstr "**Total area change:** {val:.1f} pixels²/month"
+
+#: main_V2.py:1892
+#, python-brace-format
+msgid "**Variation relative :** {val:.2f}%/mois"
+msgstr "**Relative change:** {val:.2f}%/month"
+
+#: main_V2.py:1896
+#, python-brace-format
+msgid "**Variation d’aire totale :** {val:.1f} pixels²/an"
+msgstr "**Total area change:** {val:.1f} pixels²/year"
+
+#: main_V2.py:1898
+#, python-brace-format
+msgid "**Variation relative :** {val:.2f}%/an"
+msgstr "**Relative change:** {val:.2f}%/year"
+
+#: main_V2.py:1908
+msgid "Nombre de taches"
+msgstr "Number of lesions"
+
+#: main_V2.py:1910
+msgid "Aire totale (pixels²)"
+msgstr "Total area (pixels²)"
+
+#: main_V2.py:1915
+msgid "Aire totale (% du nerf optique)"
+msgstr "Total area (% of optic nerve)"
+
+#: main_V2.py:1916 main_V2.py:1917
+msgid "Non calculé"
+msgstr "Not calculated"
+
+#: main_V2.py:1920
+msgid "Différence brute (Tx-T0)"
+msgstr "Absolute difference (Tx–T0)"
+
+#: main_V2.py:1924
+msgid "p.value (diff. aire totale)"
+msgstr "p-value (total area diff.)"
+
+#: main_V2.py:1925
+msgid "Non calculable"
+msgstr "Not calculable"
+
+#: main_V2.py:1947
+msgid "Synthèse de l'évolution"
+msgstr "Progression summary"
+
+#: main_V2.py:1978
+msgid "Aires lésionnelles T0"
+msgstr "Lesion areas (T0)"
+
+#: main_V2.py:1986
+msgid "Aires lésionnelles Tx"
+msgstr "Lesion areas (Tx)"
+
+#: main_V2.py:1995
+msgid "Moyenne"
+msgstr "Mean"
+
+#: main_V2.py:1999
+#, python-brace-format
+msgid "Moyenne : %{y:.0f} pixels²"
+msgstr "Mean: %{y:.0f} pixels²"
+
+#: main_V2.py:2039
+msgid "Informations patient enregistrées !"
+msgstr "Patient information saved."
+
+#: main_V2.py:2076
+#, python-brace-format
+msgid "Nom : {nom}"
+msgstr "Last name: {nom}"
+
+#: main_V2.py:2077
+#, python-brace-format
+msgid "Prénom : {prenom}"
+msgstr "First name: {prenom}"
+
+#: main_V2.py:2078
+#, python-brace-format
+msgid "Date de naissance : {dob}"
+msgstr "Date of birth: {dob}"
+
+#: main_V2.py:2183
+msgid "Patient créé."
+msgstr "Patient created."
+
+#: main_V2.py:2186
+msgid "Ce patient existe déjà."
+msgstr "This patient already exists."
+
+#: main_V2.py:2189
+msgid "Veuillez remplir tous les champs."
+msgstr "Please fill in all fields."
+
+#: main_V2.py:2193
+msgid "Patient chargé."
+msgstr "Patient loaded."
+
+#: main_V2.py:2220
+msgid "Veuillez créer ou sélectionner un patient."
+msgstr "Please create or select a patient."
+
+#: main_V2.py:2225
+msgid "Ajouter un examen"
+msgstr "Add an exam"
+
+#: main_V2.py:2230
+msgid "ou"
+msgstr "or"
+
+#: main_V2.py:2231
+msgid "Importer un fichier local"
+msgstr "Import a local file"
+
+#: main_V2.py:2236
+msgid "Manuelle"
+msgstr "Manual"
+
+#: main_V2.py:2238
+msgid "Semi-auto"
+msgstr "Semi-auto"
+
+#: main_V2.py:2251
+msgid "Ce dossier est vide. Ajoutez un premier examen."
+msgstr "This record is empty. Add a first exam."
+
+#: main_V2.py:2276 main_V2.py:3356 main_V2.py:3600
+msgid "Examen du"
+msgstr "Exam on"
+
+#: main_V2.py:2293 main_V2.py:3640
+msgid "Nb. lésions"
+msgstr "Lesion count"
+
+#: main_V2.py:2296 main_V2.py:3642
+msgid "Aire moyenne"
+msgstr "Mean area"
+
+#: main_V2.py:2301
+msgid "Aire normalisée (ratio pupillaire)"
+msgstr "Normalized area (optic disc ratio)"
+
+#: main_V2.py:2345
+msgid "Identité du patient actif"
+msgstr "Active Patient"
+
+#: main_V2.py:2374
+msgid "Enregistrer les modifications"
+msgstr "Save changes"
+
+#: main_V2.py:2403
+msgid "Tous les champs doivent être remplis."
+msgstr "All fields must be filled."
+
+#: main_V2.py:2409
+msgid "Aucune modification détectée."
+msgstr "No changes detected."
+
+#: main_V2.py:2413
+msgid "Un patient avec cette identité existe déjà."
+msgstr "A patient with this identity already exists."
+
+#: main_V2.py:2420
+msgid "Les informations du patient ont été mises à jour avec succès."
+msgstr "Patient information has been successfully updated."
+
+#: main_V2.py:2506
+msgid "Veuillez spécifier la date de l'examen."
+msgstr "Please specify the exam date."
+
+#: main_V2.py:2517
+msgid "Annotation sauvegardée !"
+msgstr "Annotation saved!"
+
+#: main_V2.py:2544
+msgid "Données insuffisantes"
+msgstr "Insufficient data"
+
+#: main_V2.py:2552
+msgid "Veuillez sélectionner au moins 2 examens pour une analyse complète."
+msgstr "Please select at least two exams for a complete analysis."
+
+#: main_V2.py:2590 main_V2.py:3645
+msgid "Ratio papillaire"
+msgstr "Optic disc ratio"
+
+#: main_V2.py:2590 main_V2.py:2752 main_V2.py:2775
+msgid "pixels²"
+msgstr "pixels²"
+
+#: main_V2.py:2605
+msgid "Intervalle interquartile"
+msgstr "Interquartile range"
+
+#: main_V2.py:2608
+msgid "Médiane des aires"
+msgstr "Median lesion area"
+
+#: main_V2.py:2615
+msgid "Aire individuelle"
+msgstr "Individual area (px²)"
+
+#: main_V2.py:2621
+msgid "Suivi individuel non disponible (ID de lésion manquants)"
+msgstr "Individual tracking unavailable (missing lesion IDs)"
+
+#: main_V2.py:2624 main_V2.py:2627 main_V2.py:2670
+msgid "Disparition"
+msgstr "Resolved"
+
+#: main_V2.py:2738
+msgid "Statut"
+msgstr "Status"
+
+#: main_V2.py:2775
+msgid "d'aire papillaire"
+msgstr "of optic disc area"
+
+#: main_V2.py:2777
+msgid ""
+"Analyse réalisée sur des aires normalisées par la surface de la papille."
+msgstr "Analysis performed on areas normalized by the optic disc surface area."
+
+#: main_V2.py:2778
+msgid ""
+"Analyse réalisée sur des aires brutes (pixels²), car la papille n'a pas été "
+"détectée sur au moins un examen."
+msgstr ""
+"Analysis performed on raw areas (pixels²), as the optic disc was not "
+"detected in at least one exam."
+
+#: main_V2.py:2813
+msgid "Analyse des aires globales (Test de permutation)"
+msgstr "Global Area Analysis (Permutation Test)"
+
+#: main_V2.py:2816
+msgid ""
+"Ce test non-paramétrique compare la distribution de l'ensemble des aires "
+"lésionnelles entre le premier et le dernier examen."
+msgstr ""
+"This non-parametric test compares the distribution of all lesion areas "
+"between the first and last exams."
+
+#: main_V2.py:2818
+msgid "Significativité de la variation globale (p-value) : "
+msgstr "Significance of global variation (p-value): "
+
+#: main_V2.py:2836
+msgid "Analyse des lésions appariées (Test t de Student)"
+msgstr "Paired Lesion Analysis (Student's t-test)"
+
+#: main_V2.py:2839
+#, python-brace-format
+msgid ""
+"Ce test compare les aires des {n_lesions} lésions appariées pour déterminer "
+"si la variation moyenne est significative."
+msgstr ""
+"This test compares the areas of the {n_lesions} paired lesions to "
+"determine if the mean change is significant."
+
+#: main_V2.py:2842
+msgid "Variation moyenne par lésion : "
+msgstr "Mean change per lesion: "
+
+#: main_V2.py:2847
+msgid "Significativité de la variation (p-value) : "
+msgstr "Significance of variation (p-value): "
+
+#: main_V2.py:2872
+msgid "Modèle de progression linéaire à effets mixtes"
+msgstr "Linear Mixed-Effects Progression Model"
+
+#: main_V2.py:2875
+#, python-brace-format
+msgid ""
+"Ce modèle estime une trajectoire de croissance moyenne pour {n_lesions} "
+"lésions suivies sur {n_dates} examens."
+msgstr ""
+"This model estimates a mean growth trajectory for {n_lesions} lesions "
+"tracked over {n_dates} exams."
+
+#: main_V2.py:2878
+msgid "Progression annuelle moyenne estimée : "
+msgstr "Estimated mean annual progression: "
+
+#: main_V2.py:2883
+msgid "Significativité de la progression (p-value) : "
+msgstr "Significance of progression (p-value): "
+
+#: main_V2.py:2895
+msgid "Données insuffisantes pour une analyse statistique détaillée."
+msgstr "Insufficient data for a detailed statistical analysis."
+
+#: main_V2.py:2924
+msgid "Les annotations de référence (gauche) sont manquantes."
+msgstr "Reference annotations (left) are missing."
+
+#: main_V2.py:2925
+msgid "Les annotations de comparaison (droite) sont manquantes."
+msgstr "Comparison annotations (right) are missing."
+
+#: main_V2.py:2926
+msgid "L'image de référence (gauche) est manquante."
+msgstr "Reference image (left) is missing."
+
+#: main_V2.py:2927
+msgid "L'image de comparaison (droite) est manquante."
+msgstr "Comparison image (right) is missing."
+
+#: main_V2.py:2929
+msgid "Erreur de workflow :"
+msgstr "Workflow error:"
+
+#: main_V2.py:2931
+msgid "Données Manquantes"
+msgstr "Missing data"
+
+#: main_V2.py:2938
+msgid "Image de référence (T0)"
+msgstr "Reference image (T0)"
+
+#: main_V2.py:2941
+msgid "Image de comparaison (T1)"
+msgstr "Comparison image (T1)"
+
+#: main_V2.py:2944
+msgid "Appariement Automatique"
+msgstr "Automatic matching"
+
+#: main_V2.py:2949
+msgid "Exporter T0 Augmenté"
+msgstr "Export augmented T0"
+
+#: main_V2.py:2950
+msgid "Exporter T1 Augmenté"
+msgstr "Export augmented T1"
+
+#: main_V2.py:2959
+msgid "Erreur d'Exécution"
+msgstr "Execution error"
+
+#: main_V2.py:3038
+#, python-format
+msgid "Lancer l'Atelier d'Appariement en Chaîne (%s examens)"
+msgstr "Start the Chained Matching Workshop (%s exams)"
+
+#: main_V2.py:3045
+msgid ""
+"Veuillez sélectionner au moins 2 examens pour lancer un appariement en "
+"chaîne."
+msgstr "Please select at least two exams to start chain matching."
+
+#: main_V2.py:3090
+msgid ""
+"Vous êtes sur le point de lancer un appariement en chaîne automatisé. Les "
+"identifiants des lésions seront propagés séquentiellement à travers les "
+"examens dans l'ordre chronologique suivant :"
+msgstr ""
+"You are about to start automated chain matching. Lesion identifiers will be "
+"propagated sequentially across exams in the following chronological order:"
+
+#: main_V2.py:3095
+msgid ""
+"Cette opération écrasera les appariements précédents pour les examens "
+"sélectionnés. Êtes-vous sûr ?"
+msgstr ""
+"This operation will overwrite previous matchings for the selected exams. Are "
+"you sure?"
+
+#: main_V2.py:3101
+msgid "Annuler"
+msgstr "Cancel"
+
+#: main_V2.py:3103
+msgid "Confirmer et Lancer la Chaîne"
+msgstr "Confirm and start the chain"
+
+#: main_V2.py:3169
+msgid "Appariement en chaîne simplifié terminé !"
+msgstr "Simplified chained matching completed!"
+
+#: main_V2.py:3288
+#, python-format
+msgid "Dossier pour '%s' importé et chargé avec succès."
+msgstr "Record for '%s' imported and loaded successfully."
+
+#: main_V2.py:3298
+#, python-format
+msgid "Erreur lors de l'importation du fichier : %s"
+msgstr "Error importing file: %s"
+
+#: main_V2.py:3331
+msgid "Rapport de Suivi FundusTracker"
+msgstr "FundusTracker Follow-up Report"
+
+#: main_V2.py:3333 main_V2.py:3575
+msgid "Patient"
+msgstr "Patient"
+
+#: main_V2.py:3335 main_V2.py:3577
+msgid "Date du rapport"
+msgstr "Report date"
+
+#: main_V2.py:3360
+msgid "Nombre de lésions: "
+msgstr "Number of lesions: "
+
+#: main_V2.py:3361
+msgid "Aire totale des lésions: "
+msgstr "Total lesion area: "
+
+#: main_V2.py:3371
+msgid "Détail des Examens Sélectionnés"
+msgstr "Details of Selected Exams"
+
+#: main_V2.py:3379
+msgid "Analyse Longitudinale"
+msgstr "Longitudinal Analysis"
+
+#: main_V2.py:3564
+msgid "Informations patient"
+msgstr "Patient information"
+
+#: main_V2.py:3593
+msgid "Examens réalisés"
+msgstr "Exams Performed"
+
+#: main_V2.py:3700
+msgid "Analyses statistiques"
+msgstr "Statistical Analysis"
+
+#: main_V2.py:3782
+msgid "Erreur lors de la génération de l analyse :"
+msgstr "Error generating analysis:"

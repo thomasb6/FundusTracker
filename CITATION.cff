@@ -1,0 +1,31 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "FundusTracker"
+version: "1.0"
+date-released: "2025-07-17"
+url: "https://github.com/thomasb6/FundusTracker"
+repository: "https://github.com/thomasb6/FundusTracker"
+license: "GPL-2.0"
+type: software
+
+authors:
+  - family-names: Foulonneau
+    given-names: Thomas
+    affiliation: Université Paris Cité
+    orcid: https://orcid.org/0009-0001-9824-9394 
+  - family-names: Vienne-Jumeau
+    given-names: Aliénor
+    affiliation: AP-HP, Hôpital Cochin
+
+keywords:
+  - retina
+  - annotation
+  - ophthalmology
+  - fundus images
+  - image tracking
+  - open source
+
+abstract: >
+  FundusTracker is a web-based tool for manual and semi-automatic annotation of retinal lesions,
+  developed as part of a medical thesis at Université Paris Cité. It supports visualization,
+  lesion marking, and longitudinal alignment of widefield fundus images.

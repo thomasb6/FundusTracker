@@ -1,0 +1,245 @@
+body {
+    background-color: #ecf0f1;
+    margin: 0;
+    font-family: "Poppins", sans-serif;
+}
+
+.dashboard-container {
+    max-width: 1400px;
+    margin: 10px auto;
+    background-color: #dfe6e9;
+    border: 1px solid #cccccc;
+    padding: 15px;
+    display: flex;
+    justify-content: space-between;
+}
+
+/* --- Style des blocs principaux --- */
+.left-block,
+.middle-block,
+.right-block {
+    flex: 1;
+    padding: 15px;
+    color: #2d3436;
+}
+
+.middle-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* --- Typographie --- */
+h1, h2, h3, p {
+    text-align: justify;
+    margin: 10px 0;
+}
+
+h1 { font-size: 32px; }
+h2 { font-size: 25px; }
+h3 { font-size: 14px; }
+p, .right-block p {
+    font-size: 16px;
+    color: #2d3436;
+}
+
+/* --- Composants --- */
+.graph-figure {
+    width: 100%;
+    max-width: 700px;
+    height: auto;
+}
+
+.upload-area {
+    width: 100%;
+    min-height: 60px;
+    border: 1px dashed #2d3436;
+    border-radius: 5px;
+    text-align: center;
+    margin: 10px 0;
+    padding: 10px;
+    background-color: #b2bec3;
+    color: #2d3436;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.logo-container {
+    width: 100%;
+    background-color: #ecf0f1;
+    text-align: center;
+    padding: 10px 0;
+}
+
+.footer {
+    font-size: 12px;
+    margin-top: 20px;
+    text-align: center;
+    color: #ffffff;
+    background-color: #636e72;
+    padding: 10px;
+}
+
+
+/* --- Éléments de formulaire dans le bloc de droite --- */
+.right-block .form-control,
+.right-block .dropdown-menu,
+.right-block .upload-area,
+.right-block .btn {
+    width: 100%;
+}
+
+.right-block .form-check-input {
+    margin-right: 10px;
+    vertical-align: middle;
+    cursor: pointer;
+}
+
+.right-block .form-check-label {
+    vertical-align: middle;
+    text-align: left;
+    font-size: 14px;
+    margin-left: 5px;
+}
+
+.rc-slider-mark {
+    display: none !important;
+}
+
+/* --- Design réactif --- */
+@media (max-width: 768px) {
+    .dashboard-container {
+        flex-direction: column;
+        padding: 10px;
+    }
+
+    .left-block,
+    .middle-block,
+    .right-block {
+        width: 100%;
+        margin: 10px 0;
+    }
+
+    h1 { font-size: 24px; }
+    p { font-size: 14px; }
+}
+
+/* --- Style pour l'impression --- */
+@media print {
+    body * {
+        visibility: hidden !important;
+    }
+    #pdf-report-section, #pdf-report-section * {
+        visibility: visible !important;
+    }
+    #pdf-report-section {
+        position: absolute !important;
+        left: 0;
+        top: 0;
+        width: 100vw;
+        background: #fff;
+    }
+    #pdf-report-content {
+        display: block !important;
+        position: absolute !important;
+        left: 0;
+        top: 0;
+        width: 100vw;
+        background: #fff;
+        z-index: 99999;
+        visibility: visible !important;
+    }
+}
+/* ================================================ */
+/* AMÉLIORATION DES FICHES PATIENT                */
+/* ================================================ */
+
+.patient-record-card .card-body {
+    padding: 0.5rem;
+}
+
+.patient-record-card .row {
+    align-items: center; /* Aligne verticalement l'image et le texte */
+}
+
+.patient-record-card .record-thumbnail {
+    padding-right: 0;
+    max-width: 200px; /* Limite la largeur de l'image */
+}
+
+.patient-record-card .record-info {
+    padding-left: 1.5rem;
+    font-size: 0.9rem; /* Réduit un peu la taille du texte */
+}
+
+.patient-record-card .record-info p {
+    margin-bottom: 0.5rem;
+    text-align: left;
+}
+/* ================================================ */
+/* MISE EN PAGE À DEUX COLONNES                   */
+/* ================================================ */
+
+.dashboard-container.two-columns {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start; /* Aligne les blocs en haut */
+}
+
+.two-columns .left-block {
+    flex: 1; /* Prend 1 part de l'espace */
+    max-width: 350px; /* Largeur fixe pour la colonne de gauche */
+    min-width: 300px;
+}
+
+.two-columns .main-content-block {
+    flex: 3; /* Prend 3 parts de l'espace, donc plus large */
+    padding: 0 15px; /* Ajoute un peu d'espace */
+}
+
+/* ================================================ */
+/* STYLES POUR L'EXPORT PDF DU RAPPORT PATIENT      */
+/* ================================================ */
+
+/* Cache tout par défaut lors de l'impression */
+@media print {
+    body > *:not(#pdf-patient-report-content) {
+        display: none !important;
+    }
+    #pdf-patient-report-content {
+        display: block !important;
+        visibility: visible !important;
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        background: white;
+        color: black;
+        font-family: Arial, sans-serif;
+    }
+    .report-header, .report-section {
+        padding: 20px;
+    }
+    .report-exam-card, .report-section {
+        page-break-inside: avoid; /* Essaye d'éviter de couper les éléments */
+        margin-bottom: 20px;
+    }
+    .card {
+        border: 1px solid #ddd !important;
+    }
+}
+
+/* Cache le conteneur du rapport en temps normal */
+#pdf-patient-report-content {
+    display: none;
+}
+
+/* Classe appliquée via JS pour préparer l'impression */
+body.print-active > *:not(#pdf-patient-report-content) {
+    visibility: hidden !important;
+}
+body.print-active #pdf-patient-report-content {
+    display: block !important;
+    visibility: visible !important;
+}
