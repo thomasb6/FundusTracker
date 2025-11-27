@@ -502,7 +502,18 @@ external_stylesheets = [
 app = Dash(
     __name__,
     external_stylesheets=external_stylesheets,
-    title="FundusTracker",
+    title="FundusTracker - Analyse et Segmentation de Fond d'Oeil",
+    meta_tags=[
+        {
+            "name": "description",
+            "content": "Application médicale gratuite pour la segmentation et le suivi des lésions rétiniennes."
+        },
+        {"name": "viewport", "content": "width=device-width, initial-scale=1"},
+        {"property": "og:title", "content": "FundusTracker - Ophtalmologie"},
+        {"property": "og:type", "content": "website"},
+        {"property": "og:url", "content": "https://fundustracker.io"},
+        {"property": "og:image", "content": "https://fundustracker.io/assets/logo.png"}, 
+    ],
     suppress_callback_exceptions=True,
 )
 server = app.server
