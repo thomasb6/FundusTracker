@@ -34,7 +34,7 @@ _ = gettext.gettext
 
 
 REPO_OWNER = "thomasb6"
-REPO_NAME = "alpha-detouring-BirdCHIN"
+REPO_NAME = "FundusTracker"
 FOLDER_PATH = "exemples"
 GITHUB_API_URL = (
     f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{FOLDER_PATH}"
