@@ -6,6 +6,7 @@ import os
 import random
 import re
 import uuid
+
 from PIL import Image
 from dash import Dash, html, dcc, Input, Output, State, ctx
 from dash import callback_context
@@ -18,6 +19,7 @@ from scipy.stats import ttest_ind
 from skimage import filters, color, feature
 from skimage import measure
 from sklearn.ensemble import RandomForestClassifier
+import cv2
 import dash
 import dash_bootstrap_components as dbc
 import dash_table
@@ -447,6 +449,70 @@ def shape_for_plotly(shape):
     }
 
 
+def base64_to_cv2(base64_string):
+
+    if isinstance(base64_string, str) and base64_string.startswith("data:image"):
+        encoded_data = base64_string.split(",")[1]
+        nparr = np.frombuffer(base64.b64decode(encoded_data), np.uint8)
+        return cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    return None
+
+
+def cv2_to_base64(img_array):
+
+    _, buffer = cv2.imencode(".png", img_array)
+    encoded = base64.b64encode(buffer).decode("utf-8")
+    return f"data:image/png;base64,{encoded}"
+
+
+def align_images_sift_simple(ref_img_b64, target_img_b64):
+
+    try:
+        img_ref = base64_to_cv2(ref_img_b64)
+        img_target = base64_to_cv2(target_img_b64)
+
+        if img_ref is None or img_target is None:
+            return None, "Erreur de chargement des images."
+
+        gray_ref = cv2.cvtColor(img_ref, cv2.COLOR_BGR2GRAY)
+        gray_target = cv2.cvtColor(img_target, cv2.COLOR_BGR2GRAY)
+
+        sift = cv2.SIFT_create()
+        kp1, des1 = sift.detectAndCompute(gray_ref, None)
+        kp2, des2 = sift.detectAndCompute(gray_target, None)
+
+        if des1 is None or des2 is None:
+            return None, "Pas assez de détails pour SIFT."
+
+        bf = cv2.BFMatcher()
+        matches = bf.knnMatch(des1, des2, k=2)
+
+        good = []
+        for m, n in matches:
+            if m.distance < 0.75 * n.distance:
+                good.append(m)
+
+        if len(good) < 4:
+            return None, "Pas assez de correspondances trouvées."
+
+        src_pts = np.float32([kp2[m.trainIdx].pt for m in good]).reshape(-1, 1, 2)
+        dst_pts = np.float32([kp1[m.queryIdx].pt for m in good]).reshape(-1, 1, 2)
+
+        M, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
+
+        if M is None:
+            return None, "Transformation géométrique impossible."
+
+        h, w, _ = img_ref.shape
+
+        aligned_img = cv2.warpPerspective(img_target, M, (w, h))
+
+        return cv2_to_base64(aligned_img), "Succès"
+
+    except Exception as e:
+        return None, str(e)
+
+
 scatter_fig = go.Figure(
     go.Scattergl(
         x=np.random.randn(1000),
@@ -502,18 +568,7 @@ external_stylesheets = [
 app = Dash(
     __name__,
     external_stylesheets=external_stylesheets,
-    title="FundusTracker - Analyse et Segmentation du Fond d'Oeil",
-    meta_tags=[
-        {
-            "name": "description",
-            "content": "Application médicale gratuite pour la segmentation et le suivi des lésions rétiniennes."
-        },
-        {"name": "viewport", "content": "width=device-width, initial-scale=1"},
-        {"property": "og:title", "content": "FundusTracker - Ophtalmologie"},
-        {"property": "og:type", "content": "website"},
-        {"property": "og:url", "content": "https://fundustracker.io"},
-        {"property": "og:image", "content": "https://fundustracker.io/assets/logo.png"}, 
-    ],
+    title="FundusTracker",
     suppress_callback_exceptions=True,
 )
 server = app.server
@@ -646,6 +701,174 @@ def serve_layout(language):
                                     },
                                     multiple=False,
                                 ),
+                                html.Hr(),
+                                dbc.Button(
+                                    [
+                                        html.I(
+                                            className="fas fa-crop-alt",
+                                            style={"marginRight": "5px"},
+                                        ),
+                                        _("Aligner l'image sur une référence"),
+                                    ],
+                                    id="open-crop-modal-btn",
+                                    color="warning",
+                                    outline=True,
+                                    className="mb-3",
+                                    style={"width": "100%"},
+                                ),
+                                dbc.Modal(
+                                    [
+                                        dbc.ModalHeader(
+                                            dbc.ModalTitle(
+                                                _(
+                                                    "Outil de recadrage automatique (SIFT algorithm)"
+                                                )
+                                            )
+                                        ),
+                                        dbc.ModalBody(
+                                            [
+                                                html.P(
+                                                    _(
+                                                        "L'image actuelle sera recadrée pour s'aligner sur une image de référence."
+                                                    )
+                                                ),
+                                                html.Label(
+                                                    _(
+                                                        "Choisissez l'image de référence :"
+                                                    ),
+                                                    className="fw-bold",
+                                                ),
+                                                dbc.Row(
+                                                    [
+                                                        dbc.Col(
+                                                            [
+                                                                html.Small(
+                                                                    _(
+                                                                        "Depuis la liste GitHub :"
+                                                                    )
+                                                                ),
+                                                                dcc.Dropdown(
+                                                                    id="crop-ref-dropdown",
+                                                                    options=[
+                                                                        {
+                                                                            "label": f.split(
+                                                                                "/"
+                                                                            )[
+                                                                                -1
+                                                                            ],
+                                                                            "value": f,
+                                                                        }
+                                                                        for f in filenames
+                                                                    ],
+                                                                    placeholder=_(
+                                                                        "Image référence..."
+                                                                    ),
+                                                                ),
+                                                            ],
+                                                            width=6,
+                                                        ),
+                                                        dbc.Col(
+                                                            [
+                                                                html.Small(
+                                                                    _(
+                                                                        "Ou fichier local :"
+                                                                    )
+                                                                ),
+                                                                dcc.Upload(
+                                                                    id="crop-ref-upload",
+                                                                    children=html.Div(
+                                                                        [
+                                                                            html.I(
+                                                                                className="fas fa-upload"
+                                                                            ),
+                                                                            " "
+                                                                            + _(
+                                                                                "Choisir"
+                                                                            ),
+                                                                        ]
+                                                                    ),
+                                                                    style={
+                                                                        "borderWidth": "1px",
+                                                                        "borderStyle": "dashed",
+                                                                        "borderRadius": "5px",
+                                                                        "textAlign": "center",
+                                                                        "lineHeight": "36px",
+                                                                        "marginTop": "2px",
+                                                                    },
+                                                                ),
+                                                            ],
+                                                            width=6,
+                                                        ),
+                                                    ],
+                                                    className="mb-3",
+                                                ),
+                                                dbc.Button(
+                                                    [
+                                                        _("Recadrer l'image"),
+                                                        html.I(
+                                                            className="fas fa-magic ms-2"
+                                                        ),
+                                                    ],
+                                                    id="run-crop-sift-btn",
+                                                    color="primary",
+                                                    className="w-100 mb-3",
+                                                ),
+                                                dcc.Loading(
+                                                    html.Div(
+                                                        id="crop-result-display",
+                                                        style={
+                                                            "textAlign": "center",
+                                                            "minHeight": "100px",
+                                                        },
+                                                    ),
+                                                    type="circle",
+                                                ),
+                                                dcc.Store(id="crop-result-temp-store"),
+                                                dcc.Download(
+                                                    id="download-cropped-image"
+                                                ),
+                                            ]
+                                        ),
+                                        dbc.ModalFooter(
+                                            [
+                                                dbc.Button(
+                                                    [
+                                                        html.I(
+                                                            className="fas fa-download me-2"
+                                                        ),
+                                                        _(
+                                                            "Sauvegarder l'image localement"
+                                                        ),
+                                                    ],
+                                                    id="download-cropped-img-btn",
+                                                    color="secondary",
+                                                    disabled=True,
+                                                    style={"marginRight": "auto"},
+                                                ),
+                                                dbc.Button(
+                                                    _("Fermer"),
+                                                    id="close-crop-modal-btn",
+                                                    color="light",
+                                                ),
+                                                dbc.Button(
+                                                    [
+                                                        _("Utiliser cette image"),
+                                                        html.I(
+                                                            className="fas fa-check ms-2"
+                                                        ),
+                                                    ],
+                                                    id="apply-cropped-img-btn",
+                                                    color="success",
+                                                    disabled=True,
+                                                ),
+                                            ]
+                                        ),
+                                    ],
+                                    id="crop-modal",
+                                    size="lg",
+                                    is_open=False,
+                                    backdrop="static",
+                                ),
                                 html.P(_("Classification :")),
                                 dbc.ButtonGroup(
                                     classification_buttons,
@@ -722,7 +945,7 @@ def serve_layout(language):
                                     [
                                         dbc.Checkbox(
                                             id="dashed-contour",
-                                            value=True,
+                                            value=False,
                                             className="form-check-input",
                                         ),
                                         dbc.Label(
@@ -1567,69 +1790,94 @@ def update_figure(
 
     image_id = annotation_image_id or file_val or uploaded_image
 
+    width, height = 700, 700
+    fig = scatter_fig
+
     if image_id:
         try:
             img = load_image_any(image_id)
-            fig = generate_figure(img, file_val=image_id)
-            width, height = img.size
+            if img:
+                width, height = img.size
+                fig = generate_figure(img, file_val=image_id)
         except Exception:
             fig = scatter_fig
-            width, height = 700, 700
-    else:
-        fig = scatter_fig
-        width, height = 700, 700
 
     cx, cy = width / 2, height / 2
 
     if stored_shapes is not None:
         plotly_shapes = []
         for shape in stored_shapes:
+
             shape_t = transform_shape(shape, zoom, rotation, (cx, cy))
-            shape_t.setdefault("editable", True)
-            shape_t.setdefault("layer", "above")
-            shape_t.setdefault("xref", "x")
-            shape_t.setdefault("yref", "y")
-            shape_t.setdefault("line", {"width": 0.1})
+
+            shape_t["editable"] = True
+            shape_t["layer"] = "above"
+            shape_t["xref"] = "x"
+            shape_t["yref"] = "y"
+
+            if "line" not in shape_t:
+                shape_t["line"] = {}
+            shape_t["line"]["width"] = 3
             shape_t["line"]["dash"] = "dot" if dashed_contour else "solid"
+
+            current_color = shape_t["line"].get("color", "white")
+
+            if current_color == "yellow":
+
+                shape_t["fillcolor"] = "rgba(255, 255, 0, 0.2)"
+            elif shape_t.get("customdata") == _("Exclusion"):
+
+                shape_t["fillcolor"] = "rgba(0, 0, 0, 0.4)"
+            else:
+
+                shape_t["fillcolor"] = "rgba(255, 255, 255, 0.2)"
+
             plotly_shapes.append(shape_for_plotly(shape_t))
+
         fig["layout"]["shapes"] = plotly_shapes
 
-        def centroid(coords):
-            if not coords:
-                return 0, 0
-            avg_x = sum(x for x, y in coords) / len(coords)
-            avg_y = sum(y for x, y in coords) / len(coords)
-            return avg_x, avg_y
-
         annotations = []
-        for i, shape in enumerate(stored_shapes):
-            if shape.get("type") == "circle":
-                coords = circle_to_coords(shape)
-            else:
-                path_str = shape.get("path", "")
-                matches = re.findall(r"[-+]?\d*\.\d+|\d+", path_str)
-                try:
-                    coords = [
-                        (float(matches[j]), float(matches[j + 1]))
-                        for j in range(0, len(matches), 2)
-                    ]
-                except Exception:
-                    coords = []
-            coords_t = transform_coords(coords, zoom, rotation, (cx, cy))
-            cx_ann, cy_ann = centroid(coords_t)
-            annotations.append(
-                dict(
-                    x=cx_ann,
-                    y=cy_ann,
-                    text=str(i + 1),
-                    showarrow=True,
-                    arrowhead=2,
-                    ax=0,
-                    ay=-20,
-                    font=dict(color="white", size=12),
+        if show_zone_numbers:
+
+            def centroid(coords):
+                if not coords:
+                    return 0, 0
+                avg_x = sum(x for x, y in coords) / len(coords)
+                avg_y = sum(y for x, y in coords) / len(coords)
+                return avg_x, avg_y
+
+            for i, shape in enumerate(stored_shapes):
+
+                coords = []
+                if shape.get("type") == "circle":
+                    coords = circle_to_coords(shape)
+                else:
+                    path_str = shape.get("path", "")
+                    matches = re.findall(r"[-+]?\d*\.\d+|\d+", path_str)
+                    try:
+                        coords = [
+                            (float(matches[j]), float(matches[j + 1]))
+                            for j in range(0, len(matches), 2)
+                        ]
+                    except Exception:
+                        coords = []
+
+                coords_t = transform_coords(coords, zoom, rotation, (cx, cy))
+                cx_ann, cy_ann = centroid(coords_t)
+
+                annotations.append(
+                    dict(
+                        x=cx_ann,
+                        y=cy_ann,
+                        text=str(i + 1),
+                        showarrow=True,
+                        arrowhead=2,
+                        ax=0,
+                        ay=-20,
+                        font=dict(color="white", size=12, shadow="1px 1px 2px black"),
+                    )
                 )
-            )
-        fig["layout"]["annotations"] = annotations if show_zone_numbers else []
+        fig["layout"]["annotations"] = annotations
 
     return fig
 
@@ -2920,6 +3168,17 @@ def set_uploaded_image(contents, dropdown_value, filename, last_modified):
         return contents, None, filename, None, None, None
 
     elif triggered == "file-dropdown":
+
+        if dropdown_value is None:
+
+            return (
+                dash.no_update,
+                dash.no_update,
+                dash.no_update,
+                dash.no_update,
+                dash.no_update,
+                dash.no_update,
+            )
 
         return (
             None,
@@ -5295,6 +5554,135 @@ def toggle_save_to_patient_button(active_patient_id, image_id, exam_date, shapes
     if active_patient_id and image_id and exam_date and shapes:
         return False
     return True
+
+
+@app.callback(
+    Output("crop-modal", "is_open"),
+    Output("crop-result-display", "children"),
+    Output("crop-result-temp-store", "data"),
+    Output("apply-cropped-img-btn", "disabled"),
+    Output("download-cropped-img-btn", "disabled"),
+    Input("open-crop-modal-btn", "n_clicks"),
+    Input("close-crop-modal-btn", "n_clicks"),
+    Input("run-crop-sift-btn", "n_clicks"),
+    State("crop-ref-dropdown", "value"),
+    State("crop-ref-upload", "contents"),
+    State("file-dropdown", "value"),
+    State("uploaded-image-store", "data"),
+    State("crop-modal", "is_open"),
+    State("language-store", "data"),
+    prevent_initial_call=True,
+)
+def manage_crop_workflow(
+    n_open, n_close, n_run, ref_drop, ref_up, main_drop, main_up, is_open, language
+):
+    ctx_id = ctx.triggered_id
+    _ = get_translator(language)
+
+    if ctx_id == "open-crop-modal-btn":
+        return True, None, None, True, True
+
+    if ctx_id == "close-crop-modal-btn":
+        return False, dash.no_update, None, True, True
+
+    if ctx_id == "run-crop-sift-btn":
+
+        target_b64 = image_to_base64(main_up if main_up else main_drop)
+
+        ref_b64 = None
+        if ref_up:
+            ref_b64 = ref_up
+        elif ref_drop:
+            ref_b64 = image_to_base64(ref_drop)
+
+        if not target_b64:
+            return (
+                True,
+                dbc.Alert(
+                    _("Erreur : Aucune image principale chargée."), color="danger"
+                ),
+                None,
+                True,
+                True,
+            )
+        if not ref_b64:
+            return (
+                True,
+                dbc.Alert(
+                    _("Erreur : Veuillez choisir une image de référence."),
+                    color="warning",
+                ),
+                None,
+                True,
+                True,
+            )
+
+        aligned_b64, msg = align_images_sift_simple(ref_b64, target_b64)
+
+        if aligned_b64:
+            preview = html.Div(
+                [
+                    html.H6(_("Résultat visuel :"), className="mt-2"),
+                    html.Img(
+                        src=aligned_b64,
+                        style={
+                            "maxWidth": "100%",
+                            "maxHeight": "350px",
+                            "border": "2px solid #28a745",
+                        },
+                    ),
+                    dbc.Alert(
+                        _("Alignement réussi !"), color="success", className="mt-2 py-2"
+                    ),
+                ]
+            )
+            return True, preview, aligned_b64, False, False
+        else:
+            return (
+                True,
+                dbc.Alert(f"Échec SIFT : {msg}", color="danger"),
+                None,
+                True,
+                True,
+            )
+
+    return is_open, dash.no_update, dash.no_update, dash.no_update, dash.no_update
+
+
+@app.callback(
+    Output("uploaded-image-store", "data", allow_duplicate=True),
+    Output("file-dropdown", "value", allow_duplicate=True),
+    Output("crop-modal", "is_open", allow_duplicate=True),
+    Input("apply-cropped-img-btn", "n_clicks"),
+    State("crop-result-temp-store", "data"),
+    prevent_initial_call=True,
+)
+def apply_cropped_image(n_clicks, aligned_b64):
+    if not n_clicks or not aligned_b64:
+        return dash.no_update, dash.no_update, dash.no_update
+
+    return aligned_b64, None, False
+
+
+@app.callback(
+    Output("download-cropped-image", "data"),
+    Input("download-cropped-img-btn", "n_clicks"),
+    State("crop-result-temp-store", "data"),
+    prevent_initial_call=True,
+)
+def download_cropped_image_file(n_clicks, aligned_b64):
+    if not n_clicks or not aligned_b64:
+        return dash.no_update
+
+    import datetime
+
+    content_string = aligned_b64.split(",")[1]
+
+    image_bytes = base64.b64decode(content_string)
+
+    filename = f"recadrage_sift_{datetime.datetime.now().strftime('%H%M%S')}.png"
+
+    return dcc.send_bytes(lambda f: f.write(image_bytes), filename)
 
 
 if __name__ == "__main__":
