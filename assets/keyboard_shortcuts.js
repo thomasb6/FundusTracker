@@ -1,21 +1,32 @@
-// assets/keyboard_shortcuts.js
 document.addEventListener('keydown', function(event) {
-    // Définition du mapping : touche -> texte du bouton
+    const activeElem = document.activeElement;
+    if (activeElem && (activeElem.tagName === 'INPUT' || activeElem.tagName === 'TEXTAREA')) {
+        return;
+    }
+    if (event.key === 'Backspace' || event.key === 'Delete') {
+        const eraseButton = document.querySelector('[data-title="Erase active shape"]');
+        if (eraseButton) {
+            eraseButton.click(); 
+            event.preventDefault(); 
+            console.log("Suppression déclenchée via clavier");
+        } else {
+            console.log("Bouton gomme introuvable (vérifiez config_graph)");
+        }
+        return; 
+    }
     let shortcuts = {
         'g': 'grande',
         'a': 'atrophie',
         'p': 'pigment',
         'n': 'nerf optique'
     };
-
     let key = event.key.toLowerCase();
     if (key in shortcuts) {
         let desiredText = shortcuts[key];
-        // Récupérer tous les boutons de classification
         let buttons = document.getElementsByClassName('classification-button');
-        // Parcourir les boutons et simuler le clic sur celui dont le texte correspond
+
         for (let button of buttons) {
-            if (button.innerText.trim().toLowerCase() === desiredText) {
+            if (button.innerText.trim().toLowerCase().includes(desiredText)) {
                 event.preventDefault();
                 button.click();
                 break;
