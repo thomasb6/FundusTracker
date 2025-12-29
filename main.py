@@ -958,6 +958,16 @@ def serve_layout(language):
                                     className="mb-2",
                                 ),
                                 dcc.Download(id="download-json"),
+                                dbc.Button(
+                                    [
+                                        html.I(className="fas fa-layer-group", style={"marginRight": "5px"}),
+                                        _("Exporter la matrice de segmentation"),
+                                    ],
+                                    id="download-mask-button",
+                                    color="primary",
+                                    className="mb-2",
+                                ),
+                                dcc.Download(id="download-mask-image"),
                                 html.P(_("Paramètres d'affichage :")),
                                 html.Div(
                                     [
@@ -2269,6 +2279,44 @@ def generate_summary(shapes, language, axial_length=None):
         style={"marginTop": "10px"}
     )
 
+
+def generate_mask_from_shapes(image_shape, shapes, language="fr"):
+    h, w = image_shape[:2]
+    mask = np.zeros((h, w), dtype=np.uint8)
+    _ = get_translator(language)
+    CLASS_IDS = {
+        "nerf optique": 1,
+        "optic nerve": 1,
+        "atrophie": 2,
+        "pigment": 3,
+        "plaque unsure": 4,
+        "spot unsure": 5,
+        "atrophie péripapillaire": 6,
+        "cnv actif": 7,
+        "cnv cicatrice": 8,
+        "grande": 9,
+    }
+    EXCLUSION_LABEL = _("Exclusion").lower()
+    for shape in shapes:
+        label_raw = shape.get("customdata", "").lower()
+        if label_raw == EXCLUSION_LABEL:
+            draw_val = 0
+        else:
+            draw_val = CLASS_IDS.get(label_raw, 10)
+        coords = []
+        if shape.get("type") == "circle":
+            coords = circle_to_coords(shape, n_points=64)
+        else:
+            path_str = shape.get("path", "")
+            coords = parse_path_for_matching(path_str)
+
+        if not coords:
+            continue
+        pts = np.array(coords, np.int32)
+        pts = pts.reshape((-1, 1, 2))
+        cv2.fillPoly(mask, [pts], int(draw_val))
+
+    return mask
 
 @app.callback(
     Output("zone-selector", "options"),
@@ -5801,6 +5849,43 @@ def download_cropped_image_file(n_clicks, aligned_b64):
 
     return dcc.send_bytes(lambda f: f.write(image_bytes), filename)
 
+
+@app.callback(
+    Output("download-mask-image", "data"),
+    Input("download-mask-button", "n_clicks"),
+    State("stored-shapes", "data"),
+    State("file-dropdown", "value"),
+    State("uploaded-image-store", "data"),
+    State("language-store", "data"),
+    prevent_initial_call=True,
+)
+def export_segmentation_mask(n_clicks, stored_shapes, file_val, uploaded_image, language):
+    if not n_clicks:
+        return dash.no_update
+    image_id = file_val or uploaded_image
+    if not image_id:
+        return dash.no_update
+    try:
+        pil_img = load_image_any(image_id)
+        width, height = pil_img.size
+        image_shape = (height, width)
+    except Exception as e:
+        print(f"Erreur chargement image pour masque: {e}")
+        return dash.no_update
+    shapes = stored_shapes if stored_shapes else []
+    mask_array = generate_mask_from_shapes(image_shape, shapes, language)
+    is_success, buffer = cv2.imencode(".png", mask_array)
+    if not is_success:
+        return dash.no_update
+
+    if isinstance(image_id, str) and not image_id.startswith("data:"):
+        base_name = image_id.split("/")[-1].rsplit(".", 1)[0]
+    else:
+        base_name = "local_image"
+
+    filename = f"{base_name}_mask.png"
+
+    return dcc.send_bytes(buffer.tobytes(), filename)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080, debug=False)
