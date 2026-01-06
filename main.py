@@ -192,14 +192,14 @@ def run_auto_matching(shapes_t0, shapes_t1, language):
     shapes_t1_processed = [s.copy() for s in shapes_t1]
     zones_t0, zones_t1 = [], []
     for i, s in enumerate(shapes_t0_processed):
-        if s.get("customdata") not in ["nerf optique", "optic nerve"]:
+        if s.get("customdata", "").lower() not in ["nerf optique", "optic nerve"]:
             coords = parse_path_for_matching(s.get("path", ""))
             area, centroid = calculate_polygon_properties_for_matching(coords)
             zones_t0.append(
                 {"id": i, "area": area, "centroid": centroid, "shape_ref": s}
             )
     for i, s in enumerate(shapes_t1_processed):
-        if s.get("customdata") not in ["nerf optique", "optic nerve"]:
+        if s.get("customdata", "").lower() not in ["nerf optique", "optic nerve"]:
             coords = parse_path_for_matching(s.get("path", ""))
             area, centroid = calculate_polygon_properties_for_matching(coords)
             zones_t1.append(
@@ -584,12 +584,13 @@ def serve_layout(language):
 
     _ = get_translator(language)
     classification_options = [
-        _("grande"),
-        _("atrophie"),
-        _("pigment"),
-        _("nerf optique"),
-        _("Plaque Unsure"),
-        _("Spot Unsure"),
+        _("Tache"),
+        _("Plaque"),
+        _("Atrophie"),
+        _("Pigment"),
+        _("Nerf optique"),
+        _("Plaque (incertain)"),
+        _("Spot (incertain)"),
         _("Atrophie Péripapillaire"),
         _("CNV Actif"),
         _("CNV Cicatrice"),
@@ -597,17 +598,34 @@ def serve_layout(language):
     ]
 
     def create_class_btn(opt):
+        # Traducteur (assurez-vous que 'language' est accessible)
+        _ = get_translator(language)
+
+        # Styles de base
+        btn_style = {
+            "flex": "1",
+            "fontSize": "0.75rem",
+            "padding": "6px 2px",
+            "whiteSpace": "normal",
+            "lineHeight": "1.1",
+            "margin": "2px",
+            "border": "none"
+        }
+        if opt == _("Exclusion"):
+            color = "dark"
+        elif opt == _("Nerf optique"):
+            color = "warning"
+            btn_style["backgroundColor"] = "#e1b12c"
+            btn_style["color"] = "white"
+        else:
+            color = "secondary"
+
+
         return dbc.Button(
             opt,
             id={"type": "classify-button", "index": opt},
-            color="dark" if opt == _("Exclusion") else "secondary",
-            style={
-                "flex": "1",
-                "fontSize": "0.75rem",
-                "padding": "6px 2px",
-                "whiteSpace": "normal",
-                "lineHeight": "1.1"
-            },
+            color=color,
+            style=btn_style,
         )
 
     buttons_row_1 = [create_class_btn(opt) for opt in classification_options[:5]]
@@ -1944,11 +1962,9 @@ def update_figure(
 
 
 def find_optic_nerve(shapes, language):
-
     _ = get_translator(language)
-    optic_nerve_label = _("nerf optique")
     for i, shape in enumerate(shapes):
-        if shape.get("customdata") == optic_nerve_label:
+        if shape.get("customdata", "").lower() in ["nerf optique", "optic nerve"]:
             return i, shape
     return None, None
 
@@ -2099,14 +2115,11 @@ def update_shapes_combined(
 
     if isinstance(trigger, dict) and trigger.get("type") == "classify-button":
         label = trigger["index"]
-        target_idx = (
-            selected_zone_idx if selected_zone_idx is not None else len(shapes) - 1
-        )
+        target_idx = selected_zone_idx if selected_zone_idx is not None else len(shapes) - 1
+
         if 0 <= target_idx < len(shapes):
-            if label == optic_nerve_label:
-                optic_nerve_idx, optic_nerve_shape_obj = find_optic_nerve(
-                    shapes, language
-                )
+            if label.lower() in ["nerf optique", "optic nerve"]:
+                optic_nerve_idx, optic_nerve_shape_obj = find_optic_nerve(shapes, language)
                 if optic_nerve_idx is not None and optic_nerve_idx != target_idx:
                     summary = dbc.Alert(
                         _("Un nerf optique existe déjà. Impossible d'en créer un second."),
@@ -2195,7 +2208,7 @@ def generate_summary(shapes, language, axial_length=None):
 
     optic_nerve_area_px = 0
     for data in processed_shapes:
-        if data["original_shape"].get("customdata") == optic_nerve_label:
+        if data["original_shape"].get("customdata", "").lower() in ["nerf optique", "optic nerve"]:
             optic_nerve_area_px = data["raw_area"]
             break
 
@@ -2267,12 +2280,12 @@ def generate_mask_from_shapes(image_shape, shapes, language="fr"):
         "optic nerve": 1,
         "atrophie": 2,
         "pigment": 3,
-        "plaque unsure": 4,
-        "spot unsure": 5,
+        "plaque (incertain)": 4,
+        "spot (incertain)": 5,
         "atrophie péripapillaire": 6,
         "cnv actif": 7,
         "cnv cicatrice": 8,
-        "grande": 9,
+        "plaque": 9,
     }
     EXCLUSION_LABEL = _("Exclusion").lower()
     for shape in shapes:
@@ -2327,14 +2340,14 @@ def export_to_excel(n_clicks, stored_shapes, file_val, uploaded_image, language,
 
     processed_shapes_data = calculate_effective_areas(stored_shapes, language)
     optic_nerve_label = _("nerf optique")
-    optic_nerve_labels = [optic_nerve_label, "optic nerve", "nerf optique"]
+    optic_nerve_labels = [optic_nerve_label.lower(), "optic nerve", "nerf optique"]
 
     area_no_px = 0
     optic_nerve_centroid = None
     reference_source_text = _("Centre de l'Image (Pas de NO)")
 
     for data in processed_shapes_data:
-        classification = data["original_shape"].get("customdata", "")
+        classification = data["original_shape"].get("customdata", "").lower()
         if classification in optic_nerve_labels:
             area_no_px = data["raw_area"]
             optic_nerve_centroid = data["centroid"]
@@ -5138,7 +5151,7 @@ def generate_and_trigger_patient_report(
             lesions = [
                 s
                 for s in rec.get("shapes", [])
-                if s.get("customdata") not in ["nerf optique", "optic nerve"]
+                if s.get("customdata", "").lower() not in ["nerf optique", "optic nerve"]
             ]
             aire_totale = sum(
                 calculate_area(parse_path_for_matching(s.get("path", "")))
