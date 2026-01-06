@@ -584,13 +584,11 @@ def serve_layout(language):
 
     _ = get_translator(language)
     classification_options = [
-        # Ligne 1
         _("grande"),
         _("atrophie"),
         _("pigment"),
         _("nerf optique"),
         _("Plaque Unsure"),
-        # Ligne 2
         _("Spot Unsure"),
         _("Atrophie Péripapillaire"),
         _("CNV Actif"),
@@ -598,22 +596,20 @@ def serve_layout(language):
         _("Exclusion"),
     ]
 
-    # Fonction utilitaire pour créer un bouton
     def create_class_btn(opt):
         return dbc.Button(
             opt,
             id={"type": "classify-button", "index": opt},
             color="dark" if opt == _("Exclusion") else "secondary",
             style={
-                "flex": "1",  # Force les boutons à prendre une largeur égale
-                "fontSize": "0.75rem",  # Police ajustée pour que les textes longs (CNV...) rentrent
-                "padding": "6px 2px",  # Réduit le padding latéral
-                "whiteSpace": "normal",  # Permet au texte de passer à la ligne dans le bouton si nécessaire
+                "flex": "1",
+                "fontSize": "0.75rem",
+                "padding": "6px 2px",
+                "whiteSpace": "normal",
                 "lineHeight": "1.1"
             },
         )
 
-    # On coupe la liste en deux groupes de 5
     buttons_row_1 = [create_class_btn(opt) for opt in classification_options[:5]]
     buttons_row_2 = [create_class_btn(opt) for opt in classification_options[5:]]
 
@@ -881,21 +877,18 @@ def serve_layout(language):
                                 ),
                                 html.P(_("Classification :"), className="mb-1"),
 
-                                # Ligne 1 (5 boutons)
                                 dbc.ButtonGroup(
                                     buttons_row_1,
                                     style={"width": "100%", "display": "flex"},
                                     className="mb-1"
                                 ),
 
-                                # Ligne 2 (5 boutons)
                                 dbc.ButtonGroup(
                                     buttons_row_2,
                                     style={"width": "100%", "display": "flex"},
                                     className="mb-2"
                                 ),
 
-                                # Zone pour "Autres" (Champ libre)
                                 dbc.InputGroup(
                                     [
                                         dbc.Input(
@@ -2110,7 +2103,6 @@ def update_shapes_combined(
             selected_zone_idx if selected_zone_idx is not None else len(shapes) - 1
         )
         if 0 <= target_idx < len(shapes):
-            # Logique existante pour le nerf optique
             if label == optic_nerve_label:
                 optic_nerve_idx, optic_nerve_shape_obj = find_optic_nerve(
                     shapes, language
@@ -2129,13 +2121,9 @@ def update_shapes_combined(
                     shape_to_move["line"]["color"] = "yellow"
                     shapes.insert(0, shape_to_move)
             else:
-                # Application classique
                 shapes[target_idx]["customdata"] = label
                 shapes[target_idx]["line"]["dash"] = "dot"
-                # Si c'est "Exclusion", on met une couleur spécifique, sinon blanc
                 if label == _("Exclusion"):
-                    # La couleur de remplissage est gérée dans update_figure,
-                    # ici on gère juste la ligne si besoin
                     shapes[target_idx]["line"]["color"] = "gray"
                 else:
                     shapes[target_idx]["line"]["color"] = "white"
@@ -2143,7 +2131,6 @@ def update_shapes_combined(
         summary = generate_summary(shapes, language, axial_length)
         return shapes, summary, new_upload, dash.no_update, dash.no_update
 
-        # --- LOGIQUE POUR LE CHAMP "AUTRES" (NOUVEAU BLOC) ---
     if trigger == "apply-custom-label-btn":
         if not custom_label_text:
             return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
@@ -2156,7 +2143,7 @@ def update_shapes_combined(
         if 0 <= target_idx < len(shapes):
             shapes[target_idx]["customdata"] = label
             shapes[target_idx]["line"]["dash"] = "dot"
-            shapes[target_idx]["line"]["color"] = "cyan"  # Couleur distincte pour les autres
+            shapes[target_idx]["line"]["color"] = "cyan"
 
         summary = generate_summary(shapes, language, axial_length)
         return shapes, summary, new_upload, dash.no_update, dash.no_update
@@ -2206,21 +2193,16 @@ def generate_summary(shapes, language, axial_length=None):
     processed_shapes = calculate_effective_areas(shapes, language)
     optic_nerve_label = _("nerf optique")
 
-    # 1. Trouver l'aire du nerf optique en pixels
     optic_nerve_area_px = 0
     for data in processed_shapes:
         if data["original_shape"].get("customdata") == optic_nerve_label:
             optic_nerve_area_px = data["raw_area"]
             break
 
-    # 2. Calculer le facteur de conversion (px -> mm²)
-    # Standard Papille Area ~= 2.54 mm² (Diamètre moyen 1.8mm)
     pixel_to_mm2_ratio = 0
     if optic_nerve_area_px > 0:
         pixel_to_mm2_ratio = 2.54 / optic_nerve_area_px
 
-    # 3. Facteur de correction Bennett (si AL fourni)
-    # Formule : ((AL - 1.82) / (24.2 - 1.82))^2
     bennett_factor = 1.0
     if axial_length and isinstance(axial_length, (int, float)) and axial_length > 0:
         try:
@@ -2231,7 +2213,6 @@ def generate_summary(shapes, language, axial_length=None):
 
     areas_text = []
 
-    # En-tête info calibration
     if pixel_to_mm2_ratio > 0:
         info_txt = _("Calibration sur Papille (std 1.8mm)")
         if bennett_factor != 1.0:
@@ -2249,18 +2230,15 @@ def generate_summary(shapes, language, axial_length=None):
         raw_px = data['raw_area']
         eff_px = data['effective_area']
 
-        # Calcul en mm²
         val_str = f"{eff_px:.0f} px²"
 
         if pixel_to_mm2_ratio > 0:
-            # Aire (mm²) = Aire (px) * Ratio * Bennett
             area_mm = eff_px * pixel_to_mm2_ratio * bennett_factor
             val_str = [f"{eff_px:.0f} px² ➔ ", html.B(f"{area_mm:.2f} mm²")]
 
-        # Gestion affichage exclusion
         detail = ""
         if lab == _("Exclusion"):
-            val_str = f"{raw_px:.0f} px²"  # On garde px pour l'exclusion souvent
+            val_str = f"{raw_px:.0f} px²"
             parent = data["parent_index"]
             detail = f" (Zone {parent + 1})" if parent is not None else ""
         elif data["subtracted_area"] > 0:
@@ -2351,7 +2329,6 @@ def export_to_excel(n_clicks, stored_shapes, file_val, uploaded_image, language,
     optic_nerve_label = _("nerf optique")
     optic_nerve_labels = [optic_nerve_label, "optic nerve", "nerf optique"]
 
-    # --- ÉTAPE 1 : Trouver l'aire du nerf optique (NO) en pixels ---
     area_no_px = 0
     optic_nerve_centroid = None
     reference_source_text = _("Centre de l'Image (Pas de NO)")
@@ -2373,7 +2350,6 @@ def export_to_excel(n_clicks, stored_shapes, file_val, uploaded_image, language,
         except:
             optic_nerve_centroid = (350, 350)
 
-    # --- ÉTAPE 2 : Calcul des facteurs de conversion ---
     scale_mm2_per_px = 0
     if area_no_px > 0:
         scale_mm2_per_px = 2.54 / area_no_px
@@ -2392,7 +2368,6 @@ def export_to_excel(n_clicks, stored_shapes, file_val, uploaded_image, language,
 
     has_calibration = (area_no_px > 0)
 
-    # --- ÉTAPE 3 : Construction des lignes ---
     rows = []
 
     if has_calibration:
@@ -2401,7 +2376,6 @@ def export_to_excel(n_clicks, stored_shapes, file_val, uploaded_image, language,
             _("Classification"): _("Nerf Optique (Étalon)"),
             _("Aire (pixels²)"): area_no_px,
             _("Aire (mm²)"): 2.54 * bennett_factor,
-            # On laisse vide les mesures de forme pour le NO ref
             _("Grand Axe (px)"): None, _("Grand Axe (mm)"): None,
             _("Petit Axe (px)"): None, _("Petit Axe (mm)"): None,
             _("Distance au NO (px)"): 0, _("Distance au NO (mm)"): 0,
@@ -2437,18 +2411,14 @@ def export_to_excel(n_clicks, stored_shapes, file_val, uploaded_image, language,
         else:
             area_px = data["effective_area"]
 
-        # Conversion Aire
         area_mm2 = area_px * final_scale_area if has_calibration else None
 
-        # Ellipse (Pixels)
         (lesion_centroid, major_axis_px, minor_axis_px, ellipse_angle) = compute_ellipse_params(coords)
 
-        # Distance (Pixels)
         distance_px = None
         if lesion_centroid is not None and optic_nerve_centroid is not None:
             distance_px = np.linalg.norm(np.array(lesion_centroid) - np.array(optic_nerve_centroid))
 
-        # Conversion Linéaire (mm)
         dist_mm = distance_px * final_scale_linear if has_calibration and distance_px else None
         major_mm = major_axis_px * final_scale_linear if has_calibration and major_axis_px else None
         minor_mm = minor_axis_px * final_scale_linear if has_calibration and minor_axis_px else None
@@ -2476,17 +2446,14 @@ def export_to_excel(n_clicks, stored_shapes, file_val, uploaded_image, language,
         rows.append({
             _("Zone"): data["original_index"] + 1,
             _("Classification"): classification,
-            # --- Données Pixels (Brutes) ---
             _("Aire (pixels²)"): area_px,
             _("Distance au NO (px)"): distance_px,
             _("Grand Axe (px)"): major_axis_px,
             _("Petit Axe (px)"): minor_axis_px,
-            # --- Données MM (Calibrées) ---
             _("Aire (mm²)"): area_mm2,
             _("Distance au NO (mm)"): dist_mm,
             _("Grand Axe (mm)"): major_mm,
             _("Petit Axe (mm)"): minor_mm,
-            # ------------------------------
             _("Info Calibration"): f"AL: {al_used}",
             _("Parent (si exclusion)"): parent_info,
             _("Indice d'Élongation"): elongation_index,
@@ -2496,14 +2463,10 @@ def export_to_excel(n_clicks, stored_shapes, file_val, uploaded_image, language,
 
     df = pd.DataFrame(rows)
 
-    # Ordre logique des colonnes
     desired_order = [
         _("Zone"), _("Classification"),
-        # Bloc Pixels
         _("Aire (pixels²)"), _("Distance au NO (px)"), _("Grand Axe (px)"), _("Petit Axe (px)"),
-        # Bloc MM
         _("Aire (mm²)"), _("Distance au NO (mm)"), _("Grand Axe (mm)"), _("Petit Axe (mm)"),
-        # Autres
         _("Info Calibration"),
         _("Parent (si exclusion)"),
         _("Indice d'Élongation"), _("Indice de Circularité"), _("Alignement Radial (degrés)")
