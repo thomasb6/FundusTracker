@@ -6,7 +6,7 @@ import os
 import random
 import re
 import uuid
-
+import zipfile
 from PIL import Image
 from dash import Dash, html, dcc, Input, Output, State, ctx
 from dash import callback_context
@@ -44,6 +44,150 @@ GITHUB_API_URL = (
 GITHUB_TOKEN = "ghp_nwTO1ndY???????????rsxh9HxEJKi2QiZNDWGCSX?3?z?U?g?NP"
 GITHUB_TOKEN = GITHUB_TOKEN.replace("?", "")
 
+import numpy as np
+import pandas as pd
+
+
+def process_image_analysis_data(stored_shapes, file_val, uploaded_image, language, axial_length):
+    _ = get_translator(language)
+
+    processed_shapes_data = calculate_effective_areas(stored_shapes, language)
+
+    optic_nerve_label = _("nerf optique")
+    optic_nerve_labels = [optic_nerve_label.lower(), "optic nerve", "nerf optique"]
+
+    area_no_px = 0
+    optic_nerve_centroid = None
+
+    for data in processed_shapes_data:
+        classification = data["original_shape"].get("customdata", "").lower()
+        if classification in optic_nerve_labels:
+            area_no_px = data["raw_area"]
+            optic_nerve_centroid = data["centroid"]
+            break
+
+    if optic_nerve_centroid is None:
+        try:
+            image_id = file_val or uploaded_image
+            image = load_image_any(image_id)
+            width, height = image.size
+            optic_nerve_centroid = (width / 2, height / 2)
+        except:
+            optic_nerve_centroid = (350, 350)
+
+    scale_mm2_per_px = 0
+    if area_no_px > 0:
+        scale_mm2_per_px = 2.54 / area_no_px
+
+    bennett_factor = 1.0
+    al_used = "Standard (24.2)"
+    if axial_length and isinstance(axial_length, (int, float)) and axial_length > 0:
+        try:
+            bennett_factor = ((axial_length - 1.82) / (24.2 - 1.82)) ** 2
+            al_used = f"{axial_length} mm"
+        except:
+            pass
+
+    final_scale_area = scale_mm2_per_px * bennett_factor
+    final_scale_linear = np.sqrt(final_scale_area) if final_scale_area > 0 else 0
+    has_calibration = (area_no_px > 0)
+    rows = []
+    if has_calibration:
+        rows.append({
+            _("Zone"): "Ref",
+            _("Classification"): _("Nerf Optique (Étalon)"),
+            _("Aire (pixels²)"): area_no_px,
+            _("Aire (mm²)"): 2.54 * bennett_factor,
+            _("Grand Axe (px)"): None, _("Grand Axe (mm)"): None,
+            _("Petit Axe (px)"): None, _("Petit Axe (mm)"): None,
+            _("Distance au NO (px)"): 0, _("Distance au NO (mm)"): 0,
+            _("Info Calibration"): _("Utilisé comme référence (2.54 mm²)")
+        })
+
+    def compute_ellipse_params(coords):
+        arr = np.array(coords)
+        if len(arr) < 3: return None, None, None, None
+        centroid = np.mean(arr, axis=0)
+        cov = np.cov(arr, rowvar=False)
+        if np.linalg.matrix_rank(cov) < 2: return centroid, None, None, None
+        eigenvals, eigenvecs = np.linalg.eig(cov)
+        order = eigenvals.argsort()[::-1]
+        eigenvals, eigenvecs = eigenvals[order], eigenvecs[:, order]
+        major = 4 * np.sqrt(eigenvals[0])
+        minor = 4 * np.sqrt(eigenvals[1])
+        angle = np.degrees(np.arctan2(eigenvecs[1, 0], eigenvecs[0, 0]))
+        return centroid, major, minor, angle
+
+    for data in processed_shapes_data:
+        shape = data["original_shape"]
+        classification = shape.get("customdata", "Tache")
+
+        if classification in optic_nerve_labels:
+            continue
+        coords = data["coords"]
+        if not coords: continue
+        if classification == _("Exclusion"):
+            area_px = data["raw_area"]
+        else:
+            area_px = data["effective_area"]
+        area_mm2 = area_px * final_scale_area if has_calibration else None
+        (lesion_centroid, major_axis_px, minor_axis_px, ellipse_angle) = compute_ellipse_params(coords)
+        distance_px = None
+        if lesion_centroid is not None and optic_nerve_centroid is not None:
+            distance_px = np.linalg.norm(np.array(lesion_centroid) - np.array(optic_nerve_centroid))
+        dist_mm = distance_px * final_scale_linear if has_calibration and distance_px else None
+        major_mm = major_axis_px * final_scale_linear if has_calibration and major_axis_px else None
+        minor_mm = minor_axis_px * final_scale_linear if has_calibration and minor_axis_px else None
+        elongation_index = (major_axis_px / minor_axis_px) if (major_axis_px and minor_axis_px) else None
+        perimeter = 0
+        for j in range(len(coords)):
+            p1 = coords[j]
+            p2 = coords[(j + 1) % len(coords)]
+            perimeter += np.linalg.norm(np.array(p1) - np.array(p2))
+        circularity_index = (4 * np.pi * data["raw_area"]) / (perimeter ** 2) if perimeter > 0 else None
+        alignement_radial = None
+        if lesion_centroid is not None and ellipse_angle is not None and optic_nerve_centroid:
+            angle_from_center = np.degrees(np.arctan2(
+                lesion_centroid[1] - optic_nerve_centroid[1],
+                lesion_centroid[0] - optic_nerve_centroid[0]
+            ))
+            delta_angle = ellipse_angle - angle_from_center
+            alignement_radial = (delta_angle + 90) % 180 - 90
+        parent_info = f"Zone {data['parent_index'] + 1}" if data["parent_index"] is not None else ""
+        rows.append({
+            _("Zone"): data["original_index"] + 1,
+            _("Classification"): classification,
+            _("Aire (pixels²)"): area_px,
+            _("Distance au NO (px)"): distance_px,
+            _("Grand Axe (px)"): major_axis_px,
+            _("Petit Axe (px)"): minor_axis_px,
+            _("Aire (mm²)"): area_mm2,
+            _("Distance au NO (mm)"): dist_mm,
+            _("Grand Axe (mm)"): major_mm,
+            _("Petit Axe (mm)"): minor_mm,
+            _("Info Calibration"): f"AL: {al_used}",
+            _("Parent (si exclusion)"): parent_info,
+            _("Indice d'Élongation"): elongation_index,
+            _("Indice de Circularité"): circularity_index,
+            _("Alignement Radial (degrés)"): alignement_radial,
+        })
+
+    df = pd.DataFrame(rows)
+    desired_order = [
+        _("Zone"), _("Classification"),
+        _("Aire (pixels²)"), _("Distance au NO (px)"), _("Grand Axe (px)"), _("Petit Axe (px)"),
+        _("Aire (mm²)"), _("Distance au NO (mm)"), _("Grand Axe (mm)"), _("Petit Axe (mm)"),
+        _("Info Calibration"),
+        _("Parent (si exclusion)"),
+        _("Indice d'Élongation"), _("Indice de Circularité"), _("Alignement Radial (degrés)")
+    ]
+
+    final_cols = [c for c in desired_order if c in df.columns]
+    df = df[final_cols]
+    image_identifier = file_val or "local_image"
+    filename = f"{image_identifier.split('/')[-1].rsplit('.', 1)[0]}.xlsx"
+
+    return df, filename
 
 def is_point_in_polygon(point, polygon_coords):
 
@@ -945,28 +1089,34 @@ def serve_layout(language):
                                 html.P(_("Exporter :")),
                                 dbc.Button(
                                     [
-                                        html.I(
-                                            className="fas fa-download",
-                                            style={"margin-right": "5px"},
-                                        ),
-                                        _("Exporter les résultats dans un tableur"),
+                                        html.I(className="fas fa-download", style={"marginRight": "5px"}),
+                                        html.Span(_("Tout exporter"))
+                                    ],
+                                    id="export-all-button",
+                                    color="success",
+                                    className="mb-3 w-100",
+                                ),
+                                dcc.Download(id="download-all-zip"),
+                                dbc.Button(
+                                    [
+                                        html.I(className="fas fa-table", style={"marginRight": "5px"}),
+                                        _("Exporter les résultats (XLSX)"),
                                     ],
                                     id="export-button",
-                                    color="primary",
-                                    className="mb-2",
+                                    color="dark",
+                                    outline=True,
+                                    className="mb-2 w-100",
                                 ),
                                 dcc.Download(id="download-dataframe-xlsx"),
                                 dbc.Button(
                                     [
-                                        html.I(
-                                            className="fas fa-file-export",
-                                            style={"margin-right": "5px"},
-                                        ),
-                                        _("Exporter les annotations"),
+                                        html.I(className="fas fa-file-code", style={"marginRight": "5px"}),
+                                        _("Exporter les annotations (JSON)"),
                                     ],
                                     id="download-json-button",
-                                    color="primary",
-                                    className="mb-2",
+                                    color="dark",
+                                    outline=True,
+                                    className="mb-2 w-100",
                                 ),
                                 dcc.Download(id="download-json"),
                                 dbc.Button(
@@ -975,8 +1125,9 @@ def serve_layout(language):
                                         _("Exporter la matrice de segmentation"),
                                     ],
                                     id="download-mask-button",
-                                    color="primary",
-                                    className="mb-2",
+                                    color="dark",
+                                    outline=True,
+                                    className="mb-2 w-100",
                                 ),
                                 dcc.Download(id="download-mask-image"),
                                 html.P(_("Paramètres d'affichage :")),
@@ -2322,7 +2473,6 @@ def update_zone_selector_options(stored_shapes, language):
         {"label": f"{_('Zone')} {i + 1}", "value": i} for i in range(len(stored_shapes))
     ]
 
-
 @app.callback(
     Output("download-dataframe-xlsx", "data"),
     Input("export-button", "n_clicks"),
@@ -2334,163 +2484,12 @@ def update_zone_selector_options(stored_shapes, language):
     prevent_initial_call=True,
 )
 def export_to_excel(n_clicks, stored_shapes, file_val, uploaded_image, language, axial_length):
-    _ = get_translator(language)
     if not n_clicks or not stored_shapes:
         return dash.no_update
-
-    processed_shapes_data = calculate_effective_areas(stored_shapes, language)
-    optic_nerve_label = _("nerf optique")
-    optic_nerve_labels = [optic_nerve_label.lower(), "optic nerve", "nerf optique"]
-
-    area_no_px = 0
-    optic_nerve_centroid = None
-    reference_source_text = _("Centre de l'Image (Pas de NO)")
-
-    for data in processed_shapes_data:
-        classification = data["original_shape"].get("customdata", "").lower()
-        if classification in optic_nerve_labels:
-            area_no_px = data["raw_area"]
-            optic_nerve_centroid = data["centroid"]
-            reference_source_text = _("Nerf Optique Dessiné")
-            break
-
-    if optic_nerve_centroid is None:
-        try:
-            image_id = file_val or uploaded_image
-            image = load_image_any(image_id)
-            width, height = image.size
-            optic_nerve_centroid = (width / 2, height / 2)
-        except:
-            optic_nerve_centroid = (350, 350)
-
-    scale_mm2_per_px = 0
-    if area_no_px > 0:
-        scale_mm2_per_px = 2.54 / area_no_px
-
-    bennett_factor = 1.0
-    al_used = "Standard (24.2)"
-    if axial_length and isinstance(axial_length, (int, float)) and axial_length > 0:
-        try:
-            bennett_factor = ((axial_length - 1.82) / (24.2 - 1.82)) ** 2
-            al_used = f"{axial_length} mm"
-        except:
-            pass
-
-    final_scale_area = scale_mm2_per_px * bennett_factor
-    final_scale_linear = np.sqrt(final_scale_area) if final_scale_area > 0 else 0
-
-    has_calibration = (area_no_px > 0)
-
-    rows = []
-
-    if has_calibration:
-        rows.append({
-            _("Zone"): "Ref",
-            _("Classification"): _("Nerf Optique (Étalon)"),
-            _("Aire (pixels²)"): area_no_px,
-            _("Aire (mm²)"): 2.54 * bennett_factor,
-            _("Grand Axe (px)"): None, _("Grand Axe (mm)"): None,
-            _("Petit Axe (px)"): None, _("Petit Axe (mm)"): None,
-            _("Distance au NO (px)"): 0, _("Distance au NO (mm)"): 0,
-            _("Info Calibration"): _("Utilisé comme référence (2.54 mm²)")
-        })
-
-    def compute_ellipse_params(coords):
-        arr = np.array(coords)
-        if len(arr) < 3: return None, None, None, None
-        centroid = np.mean(arr, axis=0)
-        cov = np.cov(arr, rowvar=False)
-        if np.linalg.matrix_rank(cov) < 2: return centroid, None, None, None
-        eigenvals, eigenvecs = np.linalg.eig(cov)
-        order = eigenvals.argsort()[::-1]
-        eigenvals, eigenvecs = eigenvals[order], eigenvecs[:, order]
-        major = 4 * np.sqrt(eigenvals[0])
-        minor = 4 * np.sqrt(eigenvals[1])
-        angle = np.degrees(np.arctan2(eigenvecs[1, 0], eigenvecs[0, 0]))
-        return centroid, major, minor, angle
-
-    for data in processed_shapes_data:
-        shape = data["original_shape"]
-        classification = shape.get("customdata", "Tache")
-
-        if classification in optic_nerve_labels:
-            continue
-
-        coords = data["coords"]
-        if not coords: continue
-
-        if classification == _("Exclusion"):
-            area_px = data["raw_area"]
-        else:
-            area_px = data["effective_area"]
-
-        area_mm2 = area_px * final_scale_area if has_calibration else None
-
-        (lesion_centroid, major_axis_px, minor_axis_px, ellipse_angle) = compute_ellipse_params(coords)
-
-        distance_px = None
-        if lesion_centroid is not None and optic_nerve_centroid is not None:
-            distance_px = np.linalg.norm(np.array(lesion_centroid) - np.array(optic_nerve_centroid))
-
-        dist_mm = distance_px * final_scale_linear if has_calibration and distance_px else None
-        major_mm = major_axis_px * final_scale_linear if has_calibration and major_axis_px else None
-        minor_mm = minor_axis_px * final_scale_linear if has_calibration and minor_axis_px else None
-
-        elongation_index = (major_axis_px / minor_axis_px) if (major_axis_px and minor_axis_px) else None
-
-        perimeter = 0
-        for j in range(len(coords)):
-            p1 = coords[j]
-            p2 = coords[(j + 1) % len(coords)]
-            perimeter += np.linalg.norm(np.array(p1) - np.array(p2))
-        circularity_index = (4 * np.pi * data["raw_area"]) / (perimeter ** 2) if perimeter > 0 else None
-
-        alignement_radial = None
-        if lesion_centroid is not None and ellipse_angle is not None and optic_nerve_centroid:
-            angle_from_center = np.degrees(np.arctan2(
-                lesion_centroid[1] - optic_nerve_centroid[1],
-                lesion_centroid[0] - optic_nerve_centroid[0]
-            ))
-            delta_angle = ellipse_angle - angle_from_center
-            alignement_radial = (delta_angle + 90) % 180 - 90
-
-        parent_info = f"Zone {data['parent_index'] + 1}" if data["parent_index"] is not None else ""
-
-        rows.append({
-            _("Zone"): data["original_index"] + 1,
-            _("Classification"): classification,
-            _("Aire (pixels²)"): area_px,
-            _("Distance au NO (px)"): distance_px,
-            _("Grand Axe (px)"): major_axis_px,
-            _("Petit Axe (px)"): minor_axis_px,
-            _("Aire (mm²)"): area_mm2,
-            _("Distance au NO (mm)"): dist_mm,
-            _("Grand Axe (mm)"): major_mm,
-            _("Petit Axe (mm)"): minor_mm,
-            _("Info Calibration"): f"AL: {al_used}",
-            _("Parent (si exclusion)"): parent_info,
-            _("Indice d'Élongation"): elongation_index,
-            _("Indice de Circularité"): circularity_index,
-            _("Alignement Radial (degrés)"): alignement_radial,
-        })
-
-    df = pd.DataFrame(rows)
-
-    desired_order = [
-        _("Zone"), _("Classification"),
-        _("Aire (pixels²)"), _("Distance au NO (px)"), _("Grand Axe (px)"), _("Petit Axe (px)"),
-        _("Aire (mm²)"), _("Distance au NO (mm)"), _("Grand Axe (mm)"), _("Petit Axe (mm)"),
-        _("Info Calibration"),
-        _("Parent (si exclusion)"),
-        _("Indice d'Élongation"), _("Indice de Circularité"), _("Alignement Radial (degrés)")
-    ]
-
-    final_cols = [c for c in desired_order if c in df.columns]
-    df = df[final_cols]
-
-    image_identifier = file_val or "local_image"
-    filename = f"{image_identifier.split('/')[-1].rsplit('.', 1)[0]}.xlsx"
-
+    df, filename = process_image_analysis_data(
+        stored_shapes, file_val, uploaded_image, language, axial_length
+    )
+    _ = get_translator(language)
     def to_excel(bytes_io):
         with pd.ExcelWriter(bytes_io, engine="openpyxl") as writer:
             df.to_excel(writer, index=False, sheet_name=_("Analyse Complète"))
@@ -5862,6 +5861,48 @@ def export_segmentation_mask(n_clicks, stored_shapes, file_val, uploaded_image, 
     filename = f"{base_name}_mask.png"
 
     return dcc.send_bytes(buffer.tobytes(), filename)
+
+
+@app.callback(
+    Output("download-all-zip", "data"),
+    Input("export-all-button", "n_clicks"),
+    State("stored-shapes", "data"),
+    State("file-dropdown", "value"),
+    State("uploaded-image-store", "data"),
+    State("language-store", "data"),
+    State("axial-length-input", "value"),
+    prevent_initial_call=True,
+)
+def export_all_zip(n_clicks, stored_shapes, file_val, uploaded_image, language, axial_length):
+    if not n_clicks or not stored_shapes:
+        return dash.no_update
+    df, filename_xlsx = process_image_analysis_data(
+        stored_shapes, file_val, uploaded_image, language, axial_length
+    )
+    base_name = filename_xlsx.replace(".xlsx", "")
+    json_str = json.dumps(stored_shapes, indent=2)
+    mask_bytes = None
+    try:
+        image_id = file_val or uploaded_image
+        if image_id:
+            pil_img = load_image_any(image_id)
+            width, height = pil_img.size
+            mask_arr = generate_mask_from_shapes((height, width), stored_shapes, language)
+            is_success, buffer = cv2.imencode(".png", mask_arr)
+            if is_success:
+                mask_bytes = buffer.tobytes()
+    except Exception as e:
+        print(f"Erreur lors de la génération du masque pour le ZIP : {e}")
+    zip_buffer = io_buffer.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        with io_buffer.BytesIO() as excel_buffer:
+            with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
+                df.to_excel(writer, index=False, sheet_name="Analyse")
+            zf.writestr(f"{base_name}_analyse.xlsx", excel_buffer.getvalue())
+        zf.writestr(f"{base_name}_annotations.json", json_str)
+        if mask_bytes:
+            zf.writestr(f"{base_name}_mask.png", mask_bytes)
+    return dcc.send_bytes(zip_buffer.getvalue(), f"{base_name}_complet.zip")
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080, debug=False)
