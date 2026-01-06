@@ -1719,7 +1719,7 @@ def serve_layout(language):
                     [
                         html.Div(
                             [
-                                _("© 2025 – Réalisé par "),
+                                _("© 2026 – Réalisé par "),
                                 html.A(
                                     "Thomas Foulonneau",
                                     href="https://www.linkedin.com/in/thomas-foulonneau?originalSubdomain=fr",
@@ -1730,7 +1730,7 @@ def serve_layout(language):
                                     },
                                 ),
                                 _(
-                                    " – Interne, Ophtalmopôle de l'Hôpital Cochin, Paris"
+                                    " & Aliénor Vienne-Jumeau"
                                 ),
                             ],
                             style={
@@ -3236,7 +3236,7 @@ def render_pdf_report(patient_infos, summary_card, language):
                             target="_blank",
                             style={"color": "#636e72", "textDecoration": "underline"},
                         ),
-                        _(" – Interne, Ophtalmopôle de l'Hôpital Cochin, Paris"),
+                        _(" & Aliénor Vienne-Jumeau"),
                     ]
                 ),
                 style={
