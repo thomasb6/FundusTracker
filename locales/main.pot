@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-08-12 09:59+0200\n"
+"POT-Creation-Date: 2026-01-12 15:59+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,987 +17,1259 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: main_V2.py:99 main_V2.py:2624 main_V2.py:2626 main_V2.py:2648
-#: main_V2.py:3143
-msgid "Initial"
-msgstr ""
-
-#: main_V2.py:100 main_V2.py:145 main_V2.py:2624 main_V2.py:2626
-#: main_V2.py:2648
-msgid "Apparition"
-msgstr ""
-
-#: main_V2.py:101 main_V2.py:134 main_V2.py:2624 main_V2.py:2627
-#: main_V2.py:2653
-msgid "Stabilité"
-msgstr ""
-
-#: main_V2.py:102 main_V2.py:134 main_V2.py:2624 main_V2.py:2627
-#: main_V2.py:2653
-msgid "Progression"
-msgstr ""
-
-#: main_V2.py:421
-msgid "grande"
-msgstr ""
-
-#: main_V2.py:421
-msgid "atrophie"
-msgstr ""
-
-#: main_V2.py:421
-msgid "pigment"
-msgstr ""
-
-#: main_V2.py:421 main_V2.py:1122 main_V2.py:1170 main_V2.py:1397
-#: main_V2.py:1811 main_V2.py:1829 main_V2.py:3627 main_V2.py:3634
+#: main_V2_clean_humanize.py:56 main_V2_clean_humanize.py:2345
+#: main_V2_clean_humanize.py:2534 main_V2_clean_humanize.py:3017
+#: main_V2_clean_humanize.py:3040 main_V2_clean_humanize.py:5627
+#: main_V2_clean_humanize.py:5639
 msgid "nerf optique"
 msgstr ""
 
-#: main_V2.py:438 main_V2.py:618
+#: main_V2_clean_humanize.py:97 main_V2_clean_humanize.py:158
+#: main_V2_clean_humanize.py:177 main_V2_clean_humanize.py:2588
+#: main_V2_clean_humanize.py:2590 main_V2_clean_humanize.py:2649
+msgid "Zone"
+msgstr ""
+
+#: main_V2_clean_humanize.py:98 main_V2_clean_humanize.py:159
+#: main_V2_clean_humanize.py:177
+msgid "Classification"
+msgstr ""
+
+#: main_V2_clean_humanize.py:98
+msgid "Nerf Optique (Étalon)"
+msgstr ""
+
+#: main_V2_clean_humanize.py:99 main_V2_clean_humanize.py:160
+#: main_V2_clean_humanize.py:178 main_V2_clean_humanize.py:3320
+msgid "Aire (pixels²)"
+msgstr ""
+
+#: main_V2_clean_humanize.py:100 main_V2_clean_humanize.py:164
+#: main_V2_clean_humanize.py:179
+msgid "Aire (mm²)"
+msgstr ""
+
+#: main_V2_clean_humanize.py:101 main_V2_clean_humanize.py:162
+#: main_V2_clean_humanize.py:178
+msgid "Grand Axe (px)"
+msgstr ""
+
+#: main_V2_clean_humanize.py:101 main_V2_clean_humanize.py:166
+#: main_V2_clean_humanize.py:179
+msgid "Grand Axe (mm)"
+msgstr ""
+
+#: main_V2_clean_humanize.py:102 main_V2_clean_humanize.py:163
+#: main_V2_clean_humanize.py:178
+msgid "Petit Axe (px)"
+msgstr ""
+
+#: main_V2_clean_humanize.py:102 main_V2_clean_humanize.py:167
+#: main_V2_clean_humanize.py:179
+msgid "Petit Axe (mm)"
+msgstr ""
+
+#: main_V2_clean_humanize.py:103 main_V2_clean_humanize.py:161
+#: main_V2_clean_humanize.py:178
+msgid "Distance au NO (px)"
+msgstr ""
+
+#: main_V2_clean_humanize.py:103 main_V2_clean_humanize.py:165
+#: main_V2_clean_humanize.py:179
+msgid "Distance au NO (mm)"
+msgstr ""
+
+#: main_V2_clean_humanize.py:104 main_V2_clean_humanize.py:168
+#: main_V2_clean_humanize.py:180
+msgid "Info Calibration"
+msgstr ""
+
+#: main_V2_clean_humanize.py:104
+msgid "Utilisé comme référence (2.54 mm²)"
+msgstr ""
+
+#: main_V2_clean_humanize.py:129 main_V2_clean_humanize.py:214
+#: main_V2_clean_humanize.py:912 main_V2_clean_humanize.py:929
+#: main_V2_clean_humanize.py:2234 main_V2_clean_humanize.py:2466
+#: main_V2_clean_humanize.py:2580 main_V2_clean_humanize.py:2617
+msgid "Exclusion"
+msgstr ""
+
+#: main_V2_clean_humanize.py:169 main_V2_clean_humanize.py:181
+msgid "Parent (si exclusion)"
+msgstr ""
+
+#: main_V2_clean_humanize.py:170 main_V2_clean_humanize.py:182
+msgid "Indice d'Élongation"
+msgstr ""
+
+#: main_V2_clean_humanize.py:171 main_V2_clean_humanize.py:182
+msgid "Indice de Circularité"
+msgstr ""
+
+#: main_V2_clean_humanize.py:172 main_V2_clean_humanize.py:182
+msgid "Alignement Radial (degrés)"
+msgstr ""
+
+#: main_V2_clean_humanize.py:329 main_V2_clean_humanize.py:4272
+#: main_V2_clean_humanize.py:4279 main_V2_clean_humanize.py:4311
+#: main_V2_clean_humanize.py:5126
+msgid "Initial"
+msgstr ""
+
+#: main_V2_clean_humanize.py:330 main_V2_clean_humanize.py:392
+#: main_V2_clean_humanize.py:4273 main_V2_clean_humanize.py:4280
+#: main_V2_clean_humanize.py:4311
+msgid "Apparition"
+msgstr ""
+
+#: main_V2_clean_humanize.py:331 main_V2_clean_humanize.py:377
+#: main_V2_clean_humanize.py:4274 main_V2_clean_humanize.py:4281
+#: main_V2_clean_humanize.py:4325
+msgid "Stabilité"
+msgstr ""
+
+#: main_V2_clean_humanize.py:332 main_V2_clean_humanize.py:375
+#: main_V2_clean_humanize.py:4275 main_V2_clean_humanize.py:4282
+#: main_V2_clean_humanize.py:4323
+msgid "Progression"
+msgstr ""
+
+#: main_V2_clean_humanize.py:721
+msgid "Interne des Hôpitaux de Paris | Master Bio-informatique"
+msgstr ""
+
+#: main_V2_clean_humanize.py:722
+msgid "Université Paris Cité"
+msgstr ""
+
+#: main_V2_clean_humanize.py:724
+msgid ""
+"Conception technique et développement logiciel. Ce travail constitue le "
+"volet applicatif de sa recherche doctorale, combinant expertise médicale et "
+"ingénierie pour l'automatisation de l'imagerie rétinienne."
+msgstr ""
+
+#: main_V2_clean_humanize.py:736
+msgid "Docteur Junior 2 | Ophtalmologiste"
+msgstr ""
+
+#: main_V2_clean_humanize.py:737
+msgid "CHNO des Quinze-Vingts, Paris | AP-HP"
+msgstr ""
+
+#: main_V2_clean_humanize.py:739
+msgid ""
+"Direction scientifique et supervision clinique. À l'initiative du projet "
+"médical, elle encadre la définition des biomarqueurs et assure la validation "
+"méthodologique de l'analyse longitudinale."
+msgstr ""
+
+#: main_V2_clean_humanize.py:752
+msgid ""
+"FundusTracker est un logiciel de recherche clinique conçu pour l'analyse "
+"longitudinale d'images rétiniennes (Birdshot, DMLA, Tumeurs)."
+msgstr ""
+
+#: main_V2_clean_humanize.py:754
+msgid ""
+"Il permet la quantification standardisée des surfaces lésionnelles et "
+"l'analyse de leur cinétique d'évolution."
+msgstr ""
+
+#: main_V2_clean_humanize.py:756
+msgid "Objectif scientifique"
+msgstr ""
+
+#: main_V2_clean_humanize.py:760
+msgid "Les mesures brutes sont en pixels²."
+msgstr ""
+
+#: main_V2_clean_humanize.py:761
+msgid "La conversion en mm² repose sur deux méthodes :"
+msgstr ""
+
+#: main_V2_clean_humanize.py:764
+msgid ""
+"Calibration relative : Basée sur le diamètre horizontal moyen du disque "
+"optique (standardisé à 1.8 mm)."
+msgstr ""
+
+#: main_V2_clean_humanize.py:766
+msgid ""
+"Correction de Bennett : Ajustement optique précis si la Longueur Axiale du "
+"patient est renseignée."
+msgstr ""
+
+#: main_V2_clean_humanize.py:769
+msgid "Méthodologie de calibration"
+msgstr ""
+
+#: main_V2_clean_humanize.py:773
+msgid "FundusTracker respecte les principes de 'Privacy by Design'."
+msgstr ""
+
+#: main_V2_clean_humanize.py:775
+msgid ""
+"Le traitement des images est effectué localement (Client-side ou Localhost). "
+"Aucune donnée de santé identifiante n'est transmise à des serveurs tiers ou "
+"stockée dans le cloud."
+msgstr ""
+
+#: main_V2_clean_humanize.py:777
+msgid "Confidentialité des données"
+msgstr ""
+
+#: main_V2_clean_humanize.py:781
+msgid ""
+"L'outil intègre un classifieur Random Forest pour la segmentation assistée."
+msgstr ""
+
+#: main_V2_clean_humanize.py:783
+msgid ""
+"L'utilisateur définit des régions d'intérêt (Gribouillage/Squiggles) pour "
+"entraîner le modèle en temps réel sur l'image active, permettant une "
+"segmentation rapide des lésions complexes."
+msgstr ""
+
+#: main_V2_clean_humanize.py:785
+msgid "Algorithme de segmentation"
+msgstr ""
+
+#: main_V2_clean_humanize.py:794
+msgid "Équipe de recherche"
+msgstr ""
+
+#: main_V2_clean_humanize.py:802
+msgid "Citation & licence"
+msgstr ""
+
+#: main_V2_clean_humanize.py:805
+msgid "Code source sous licence GPL."
+msgstr ""
+
+#: main_V2_clean_humanize.py:823
+msgid "Informations techniques"
+msgstr ""
+
+#: main_V2_clean_humanize.py:902 main_V2_clean_humanize.py:2501
+msgid "Tache"
+msgstr ""
+
+#: main_V2_clean_humanize.py:903
+msgid "Plaque"
+msgstr ""
+
+#: main_V2_clean_humanize.py:904
+msgid "Atrophie"
+msgstr ""
+
+#: main_V2_clean_humanize.py:905
+msgid "Pigment"
+msgstr ""
+
+#: main_V2_clean_humanize.py:906 main_V2_clean_humanize.py:931
+msgid "Nerf optique"
+msgstr ""
+
+#: main_V2_clean_humanize.py:907
+msgid "Plaque (incertain)"
+msgstr ""
+
+#: main_V2_clean_humanize.py:908
+msgid "Spot (incertain)"
+msgstr ""
+
+#: main_V2_clean_humanize.py:909
+msgid "Atrophie Péripapillaire"
+msgstr ""
+
+#: main_V2_clean_humanize.py:910
+msgid "CNV Actif"
+msgstr ""
+
+#: main_V2_clean_humanize.py:911
+msgid "CNV Cicatrice"
+msgstr ""
+
+#: main_V2_clean_humanize.py:956 main_V2_clean_humanize.py:1456
 msgid "Instructions d'utilisation"
 msgstr ""
 
-#: main_V2.py:439
+#: main_V2_clean_humanize.py:959
 msgid "1. Choisissez une image depuis le menu déroulant."
 msgstr ""
 
-#: main_V2.py:440
+#: main_V2_clean_humanize.py:964
 msgid "2. Tracez le contour du nerf optique et d'une lésion sur l'image."
 msgstr ""
 
-#: main_V2.py:441
+#: main_V2_clean_humanize.py:969
 msgid "3. Classez la zone en cliquant sur le type approprié."
 msgstr ""
 
-#: main_V2.py:442
+#: main_V2_clean_humanize.py:974
 msgid "Vous pouvez supprimer une zone en la sélectionnant."
 msgstr ""
 
-#: main_V2.py:443
+#: main_V2_clean_humanize.py:979
 msgid "Vous pouvez modifier une classification via le menu déroulant."
 msgstr ""
 
-#: main_V2.py:444
+#: main_V2_clean_humanize.py:984
 msgid "4. Exportez les résultats vers Excel pour obtenir un résumé."
 msgstr ""
 
-#: main_V2.py:445
+#: main_V2_clean_humanize.py:987
 msgid "5. Téléchargez les zones annotées."
 msgstr ""
 
-#: main_V2.py:446
+#: main_V2_clean_humanize.py:990
 msgid "Vous pouvez importer un fichier avec les zones annotées."
 msgstr ""
 
-#: main_V2.py:458 main_V2.py:2227
+#: main_V2_clean_humanize.py:1010 main_V2_clean_humanize.py:3616
 msgid "Choisir une image :"
 msgstr ""
 
-#: main_V2.py:462 main_V2.py:645
+#: main_V2_clean_humanize.py:1017 main_V2_clean_humanize.py:1506
 msgid "Choisissez une image"
 msgstr ""
 
-#: main_V2.py:464
+#: main_V2_clean_humanize.py:1020
 msgid "Ou chargez une image locale :"
 msgstr ""
 
-#: main_V2.py:468
+#: main_V2_clean_humanize.py:1027
 msgid "Glissez-déposez une image ou "
 msgstr ""
 
-#: main_V2.py:469
+#: main_V2_clean_humanize.py:1028
 msgid "cliquez ici"
 msgstr ""
 
-#: main_V2.py:483
+#: main_V2_clean_humanize.py:1050
+msgid "Aligner l'image sur une référence"
+msgstr ""
+
+#: main_V2_clean_humanize.py:1063
+msgid "Outil de recadrage automatique (SIFT algorithm)"
+msgstr ""
+
+#: main_V2_clean_humanize.py:1071
+msgid ""
+"L'image actuelle sera recadrée pour s'aligner sur une image de référence."
+msgstr ""
+
+#: main_V2_clean_humanize.py:1076
+msgid "Choisissez l'image de référence :"
+msgstr ""
+
+#: main_V2_clean_humanize.py:1086
+msgid "Depuis la liste GitHub :"
+msgstr ""
+
+#: main_V2_clean_humanize.py:1103
+msgid "Image référence..."
+msgstr ""
+
+#: main_V2_clean_humanize.py:1113
+msgid "Ou fichier local :"
+msgstr ""
+
+#: main_V2_clean_humanize.py:1125
+msgid "Choisir"
+msgstr ""
+
+#: main_V2_clean_humanize.py:1146
+msgid "Recadrer l'image"
+msgstr ""
+
+#: main_V2_clean_humanize.py:1179
+msgid "Sauvegarder l'image localement"
+msgstr ""
+
+#: main_V2_clean_humanize.py:1188 main_V2_clean_humanize.py:1977
+#: main_V2_clean_humanize.py:4863 main_V2_clean_humanize.py:4907
+#: main_V2_clean_humanize.py:4924
+msgid "Fermer"
+msgstr ""
+
+#: main_V2_clean_humanize.py:1194
+msgid "Utiliser cette image"
+msgstr ""
+
+#: main_V2_clean_humanize.py:1211
 msgid "Classification :"
 msgstr ""
 
-#: main_V2.py:493
+#: main_V2_clean_humanize.py:1229
+msgid "Autre"
+msgstr ""
+
+#: main_V2_clean_humanize.py:1233
+msgid "Appliquer"
+msgstr ""
+
+#: main_V2_clean_humanize.py:1244
 msgid "Sélectionnez une zone à reclassifier"
 msgstr ""
 
-#: main_V2.py:495
+#: main_V2_clean_humanize.py:1247
 msgid "Réinitialiser :"
 msgstr ""
 
-#: main_V2.py:498
+#: main_V2_clean_humanize.py:1254
 msgid "Réinitialiser les zones annotées"
 msgstr ""
 
-#: main_V2.py:500
+#: main_V2_clean_humanize.py:1260
 msgid "Exporter :"
 msgstr ""
 
-#: main_V2.py:503
-msgid "Exporter les résultats dans un tableur"
+#: main_V2_clean_humanize.py:1264
+msgid "Tout exporter"
 msgstr ""
 
-#: main_V2.py:508
-msgid "Exporter les annotations"
+#: main_V2_clean_humanize.py:1274
+msgid "Exporter les résultats (XLSX)"
 msgstr ""
 
-#: main_V2.py:511
-msgid "Comparaison :"
+#: main_V2_clean_humanize.py:1285
+msgid "Exporter les annotations (JSON)"
 msgstr ""
 
-#: main_V2.py:515
-msgid "Définir comme référence"
+#: main_V2_clean_humanize.py:1296
+msgid "Exporter la matrice de segmentation"
 msgstr ""
 
-#: main_V2.py:520
-msgid "Ajouter à la comparaison"
-msgstr ""
-
-#: main_V2.py:522
+#: main_V2_clean_humanize.py:1304
 msgid "Paramètres d'affichage :"
 msgstr ""
 
-#: main_V2.py:531
+#: main_V2_clean_humanize.py:1314
 msgid "Afficher le numéro des zones sur le dessin"
 msgstr ""
 
-#: main_V2.py:546
+#: main_V2_clean_humanize.py:1330
 msgid "Contour pointillé des formes"
 msgstr ""
 
-#: main_V2.py:553
+#: main_V2_clean_humanize.py:1337
 msgid "Ajustements globaux :"
 msgstr ""
 
-#: main_V2.py:557
+#: main_V2_clean_humanize.py:1344
 msgid "Ajouter le nerf optique"
 msgstr ""
 
-#: main_V2.py:564
+#: main_V2_clean_humanize.py:1351
 msgid "Zoom global :"
 msgstr ""
 
-#: main_V2.py:570
+#: main_V2_clean_humanize.py:1363
 msgid "Rotation globale (°) :"
 msgstr ""
 
-#: main_V2.py:576
+#: main_V2_clean_humanize.py:1376
+msgid "Données Biométriques :"
+msgstr ""
+
+#: main_V2_clean_humanize.py:1379
+msgid "Longueur Axiale (mm) :"
+msgstr ""
+
+#: main_V2_clean_humanize.py:1390
+msgid "Permet la transformation px > mm"
+msgstr ""
+
+#: main_V2_clean_humanize.py:1399
 msgid "Gestion Patient :"
 msgstr ""
 
-#: main_V2.py:579
+#: main_V2_clean_humanize.py:1403
 msgid "Date de l'examen..."
 msgstr ""
 
-#: main_V2.py:584
+#: main_V2_clean_humanize.py:1408
 msgid "Sauvegarder dans le dossier patient"
 msgstr ""
 
-#: main_V2.py:590
+#: main_V2_clean_humanize.py:1416
 msgid "Importer :"
 msgstr ""
 
-#: main_V2.py:598
+#: main_V2_clean_humanize.py:1429
 msgid "Glissez-déposez ou sélectionnez un fichier annoté"
 msgstr ""
 
-#: main_V2.py:619
+#: main_V2_clean_humanize.py:1457
 msgid "1. Choisissez une image."
 msgstr ""
 
-#: main_V2.py:620
+#: main_V2_clean_humanize.py:1460
 msgid ""
 "2. Dessinez à main levée les zones d'intéret sur l’image pour donner des "
 "exemples."
 msgstr ""
 
-#: main_V2.py:621
+#: main_V2_clean_humanize.py:1465
 msgid "3. Cliquez sur Segmenter pour lancer la segmentation automatique."
 msgstr ""
 
-#: main_V2.py:622
+#: main_V2_clean_humanize.py:1470
 msgid ""
 "4. Vous pouvez ajouter d’autres traits et relancer la segmentation pour "
 "affiner."
 msgstr ""
 
-#: main_V2.py:623
+#: main_V2_clean_humanize.py:1475
 msgid "5. Acceptez la segmentation pour travailler manuellement les zones."
 msgstr ""
 
-#: main_V2.py:641
+#: main_V2_clean_humanize.py:1499
 msgid "Choix de l'image :"
 msgstr ""
 
-#: main_V2.py:647
+#: main_V2_clean_humanize.py:1508
 msgid "Pinceau/étiquette :"
 msgstr ""
 
-#: main_V2.py:651
+#: main_V2_clean_humanize.py:1512
 msgid "Papille (jaune)"
 msgstr ""
 
-#: main_V2.py:652
+#: main_V2_clean_humanize.py:1513
 msgid "Lésion (rouge)"
 msgstr ""
 
-#: main_V2.py:653
+#: main_V2_clean_humanize.py:1514
 msgid "Fond (vert)"
 msgstr ""
 
-#: main_V2.py:658
+#: main_V2_clean_humanize.py:1519
 msgid "Taille du pinceau :"
 msgstr ""
 
-#: main_V2.py:664
+#: main_V2_clean_humanize.py:1528
 msgid "Segmentation :"
 msgstr ""
 
-#: main_V2.py:667
+#: main_V2_clean_humanize.py:1535
 msgid "Segmenter les zones dessinées"
 msgstr ""
 
-#: main_V2.py:671
+#: main_V2_clean_humanize.py:1547
 msgid "Accepter la segmentation"
 msgstr ""
 
-#: main_V2.py:673
+#: main_V2_clean_humanize.py:1554
 msgid "Réinitialisation"
 msgstr ""
 
-#: main_V2.py:676
+#: main_V2_clean_humanize.py:1561
 msgid "Réinitialiser la segmentation"
 msgstr ""
 
-#: main_V2.py:689
+#: main_V2_clean_humanize.py:1583
 msgid "Gestion du Patient"
 msgstr ""
 
-#: main_V2.py:691
+#: main_V2_clean_humanize.py:1585
 msgid "Saisir un nouveau patient :"
 msgstr ""
 
-#: main_V2.py:692 main_V2.py:821 main_V2.py:2349
+#: main_V2_clean_humanize.py:1588 main_V2_clean_humanize.py:1851
+#: main_V2_clean_humanize.py:3841
 msgid "Nom"
 msgstr ""
 
-#: main_V2.py:694 main_V2.py:825 main_V2.py:2353
+#: main_V2_clean_humanize.py:1595 main_V2_clean_humanize.py:1862
+#: main_V2_clean_humanize.py:3851
 msgid "Prénom"
 msgstr ""
 
-#: main_V2.py:696 main_V2.py:697 main_V2.py:2357 main_V2.py:3334
-#: main_V2.py:3576
+#: main_V2_clean_humanize.py:1600 main_V2_clean_humanize.py:1603
+#: main_V2_clean_humanize.py:3863 main_V2_clean_humanize.py:5300
+#: main_V2_clean_humanize.py:5558
 msgid "Date de naissance"
 msgstr ""
 
-#: main_V2.py:699 main_V2.py:2361
+#: main_V2_clean_humanize.py:1608 main_V2_clean_humanize.py:3873
 msgid "Sexe"
 msgstr ""
 
-#: main_V2.py:703 main_V2.py:2365
+#: main_V2_clean_humanize.py:1612 main_V2_clean_humanize.py:3878
 msgid "Non spécifié"
 msgstr ""
 
-#: main_V2.py:704 main_V2.py:2366
+#: main_V2_clean_humanize.py:1613 main_V2_clean_humanize.py:3881
 msgid "Homme"
 msgstr ""
 
-#: main_V2.py:705 main_V2.py:2367
+#: main_V2_clean_humanize.py:1614 main_V2_clean_humanize.py:3882
 msgid "Femme"
 msgstr ""
 
-#: main_V2.py:711
+#: main_V2_clean_humanize.py:1621
 msgid "Créer un nouveau patient"
 msgstr ""
 
-#: main_V2.py:715
+#: main_V2_clean_humanize.py:1628
 msgid "Importer un dossier patient (.json) :"
 msgstr ""
 
-#: main_V2.py:720
+#: main_V2_clean_humanize.py:1634
 msgid "Sélectionner un fichier"
 msgstr ""
 
-#: main_V2.py:727
+#: main_V2_clean_humanize.py:1646
 msgid "Ou sélectionner un patient existant :"
 msgstr ""
 
-#: main_V2.py:728
+#: main_V2_clean_humanize.py:1650
 msgid "Choisir un patient"
 msgstr ""
 
-#: main_V2.py:730
+#: main_V2_clean_humanize.py:1653
 msgid "Exporter le dossier du patient"
 msgstr ""
 
-#: main_V2.py:736
+#: main_V2_clean_humanize.py:1665
 msgid "Exporter le rapport PDF"
 msgstr ""
 
-#: main_V2.py:749
+#: main_V2_clean_humanize.py:1690
 msgid "Dossier patient"
 msgstr ""
 
-#: main_V2.py:756
+#: main_V2_clean_humanize.py:1708
 msgid "Trier par :"
 msgstr ""
 
-#: main_V2.py:760 main_V2.py:2003
+#: main_V2_clean_humanize.py:1718 main_V2_clean_humanize.py:3321
 msgid "Date"
 msgstr ""
 
-#: main_V2.py:761
+#: main_V2_clean_humanize.py:1724
 msgid "Nb lésions"
 msgstr ""
 
-#: main_V2.py:762 main_V2.py:1968 main_V2.py:2295 main_V2.py:2599
-#: main_V2.py:2614 main_V2.py:3641
+#: main_V2_clean_humanize.py:1730 main_V2_clean_humanize.py:3275
+#: main_V2_clean_humanize.py:3750 main_V2_clean_humanize.py:4211
+#: main_V2_clean_humanize.py:4256 main_V2_clean_humanize.py:5650
 msgid "Aire totale"
 msgstr ""
 
-#: main_V2.py:771
+#: main_V2_clean_humanize.py:1747
 msgid "Tout sélectionner"
 msgstr ""
 
-#: main_V2.py:773
+#: main_V2_clean_humanize.py:1756
 msgid "Tout désélectionner"
 msgstr ""
 
-#: main_V2.py:785
+#: main_V2_clean_humanize.py:1783
 msgid "Atelier d'appariement en chaîne"
 msgstr ""
 
-#: main_V2.py:796 main_V2.py:3669
+#: main_V2_clean_humanize.py:1804 main_V2_clean_humanize.py:5675
 msgid "Analyse longitudinale"
 msgstr ""
 
-#: main_V2.py:798
+#: main_V2_clean_humanize.py:1810
 msgid ""
 "Cette section présente l'analyse longitudinale des examens sélectionnés dans "
 "le dossier patient."
 msgstr ""
 
-#: main_V2.py:801 main_V2.py:3678
+#: main_V2_clean_humanize.py:1815 main_V2_clean_humanize.py:5684
 msgid "Évolution agrégée des lésions"
 msgstr ""
 
-#: main_V2.py:804 main_V2.py:3688
+#: main_V2_clean_humanize.py:1820 main_V2_clean_humanize.py:5696
 msgid "Flux évolutif des lésions"
 msgstr ""
 
-#: main_V2.py:807
-msgid "Analyses statistique"
+#: main_V2_clean_humanize.py:1826 main_V2_clean_humanize.py:5706
+msgid "Analyses statistiques"
 msgstr ""
 
-#: main_V2.py:818
+#: main_V2_clean_humanize.py:1846
 msgid "Informations du patient"
 msgstr ""
 
-#: main_V2.py:820
+#: main_V2_clean_humanize.py:1849
 msgid "Nom du patient :"
 msgstr ""
 
-#: main_V2.py:824
+#: main_V2_clean_humanize.py:1858
 msgid "Prénom du patient :"
 msgstr ""
 
-#: main_V2.py:828
+#: main_V2_clean_humanize.py:1869
 msgid "Date de naissance :"
 msgstr ""
 
-#: main_V2.py:832
+#: main_V2_clean_humanize.py:1876
 msgid "Date image de référence :"
 msgstr ""
 
-#: main_V2.py:836
+#: main_V2_clean_humanize.py:1883
 msgid "Date image de comparaison :"
 msgstr ""
 
-#: main_V2.py:842
+#: main_V2_clean_humanize.py:1894
 msgid "Enregistrer infos patient"
 msgstr ""
 
-#: main_V2.py:868
+#: main_V2_clean_humanize.py:1962
 msgid "Lancer l'Appariement Automatique"
 msgstr ""
 
-#: main_V2.py:880
+#: main_V2_clean_humanize.py:1972
 msgid "Proposition d'Appariement Automatique"
 msgstr ""
 
-#: main_V2.py:883 main_V2.py:2932 main_V2.py:2951 main_V2.py:2961
-msgid "Fermer"
-msgstr ""
-
-#: main_V2.py:894
+#: main_V2_clean_humanize.py:1995
 msgid "Exporter le rapport"
 msgstr ""
 
-#: main_V2.py:926
+#: main_V2_clean_humanize.py:2041
 msgid "Segmentation semi-automatique"
 msgstr ""
 
-#: main_V2.py:927
+#: main_V2_clean_humanize.py:2046
 msgid "Segmentation manuelle"
 msgstr ""
 
-#: main_V2.py:928
+#: main_V2_clean_humanize.py:2051
 msgid "Suivi de patients"
 msgstr ""
 
-#: main_V2.py:934 main_V2.py:2088
-msgid "© 2025 – Réalisé par "
+#: main_V2_clean_humanize.py:2056
+msgid "FAQ & À propos"
 msgstr ""
 
-#: main_V2.py:941 main_V2.py:2095
-msgid " – Interne, Ophtalmopôle de l'Hôpital Cochin, Paris"
+#: main_V2_clean_humanize.py:2067
+msgid "© 2026 – Réalisé par "
 msgstr ""
 
-#: main_V2.py:1175
+#: main_V2_clean_humanize.py:2078 main_V2_clean_humanize.py:3427
+msgid " & Aliénor Vienne-Jumeau"
+msgstr ""
+
+#: main_V2_clean_humanize.py:2351
 msgid "Aucune segmentation ML détectée."
 msgstr ""
 
-#: main_V2.py:1187
+#: main_V2_clean_humanize.py:2366
 msgid "segmentation-auto"
 msgstr ""
 
-#: main_V2.py:1201
+#: main_V2_clean_humanize.py:2380
 msgid "Glissez-déposez ou "
 msgstr ""
 
-#: main_V2.py:1201
+#: main_V2_clean_humanize.py:2381
 msgid "sélectionnez un fichier annoté"
 msgstr ""
 
-#: main_V2.py:1204
+#: main_V2_clean_humanize.py:2388
 msgid "Annotations réinitialisées."
 msgstr ""
 
-#: main_V2.py:1277
+#: main_V2_clean_humanize.py:2452
 msgid "Un nerf optique existe déjà. Impossible d'en créer un second."
 msgstr ""
 
-#: main_V2.py:1300
-msgid "Tache"
+#: main_V2_clean_humanize.py:2557
+msgid "Calibration sur Papille (std 1.8mm)"
 msgstr ""
 
-#: main_V2.py:1338 main_V2.py:1367 main_V2.py:1421 main_V2.py:1505
-#: main_V2.py:1518
-msgid "Zone"
+#: main_V2_clean_humanize.py:2563
+msgid "Dessinez le nerf optique pour avoir des mm²"
 msgstr ""
 
-#: main_V2.py:1341
-msgid "Résumé des zones annotées :"
+#: main_V2_clean_humanize.py:2594
+msgid "Résumé des zones annotées"
 msgstr ""
 
-#: main_V2.py:1417
-msgid "Nerf Optique Dessiné"
-msgstr ""
-
-#: main_V2.py:1421 main_V2.py:1505 main_V2.py:1518
-msgid "Classification"
-msgstr ""
-
-#: main_V2.py:1421
-msgid "Nerf Optique (Référence)"
-msgstr ""
-
-#: main_V2.py:1422 main_V2.py:1506 main_V2.py:1518 main_V2.py:2002
-msgid "Aire (pixels²)"
-msgstr ""
-
-#: main_V2.py:1422 main_V2.py:1506 main_V2.py:1519
-msgid "Référence de Calcul"
-msgstr ""
-
-#: main_V2.py:1423 main_V2.py:1507 main_V2.py:1519
-msgid "Distance au Nerf Optique (pixels)"
-msgstr ""
-
-#: main_V2.py:1424 main_V2.py:1508 main_V2.py:1520
-msgid "Grand Axe (pixels)"
-msgstr ""
-
-#: main_V2.py:1424 main_V2.py:1508 main_V2.py:1520
-msgid "Petit Axe (pixels)"
-msgstr ""
-
-#: main_V2.py:1425 main_V2.py:1509 main_V2.py:1521
-msgid "Indice d'Élongation"
-msgstr ""
-
-#: main_V2.py:1425 main_V2.py:1510 main_V2.py:1521
-msgid "Indice de Circularité"
-msgstr ""
-
-#: main_V2.py:1426 main_V2.py:1511 main_V2.py:1522
-msgid "Alignement Radial (degrés)"
-msgstr ""
-
-#: main_V2.py:1436
-msgid "Centre de l'Image (Fallback)"
-msgstr ""
-
-#: main_V2.py:1439
-msgid "Centre par Défaut (Fallback)"
-msgstr ""
-
-#: main_V2.py:1531
+#: main_V2_clean_humanize.py:2671
 msgid "Analyse Complète"
 msgstr ""
 
-#: main_V2.py:1656
-msgid "Dessinez au moins 2 catégories à segmenter (ex. Fond + Lésion)"
+#: main_V2_clean_humanize.py:2838
+msgid "Ajoutez au moins 2 squiggles (fond + lésion)."
 msgstr ""
 
-#: main_V2.py:1705
+#: main_V2_clean_humanize.py:2907
 msgid ""
 "Segmentation calculée ! Cliquez sur « Accepter comme zones » pour exporter "
 "les lésions."
 msgstr ""
 
-#: main_V2.py:1738
-msgid "Ajouté comme image de référence !"
-msgstr ""
-
-#: main_V2.py:1764
+#: main_V2_clean_humanize.py:2949
 msgid "Ajouté comme image de comparaison !"
 msgstr ""
 
-#: main_V2.py:1798
+#: main_V2_clean_humanize.py:2996 main_V2_clean_humanize.py:2998
 msgid "Image de référence"
 msgstr ""
 
-#: main_V2.py:1799
+#: main_V2_clean_humanize.py:3001 main_V2_clean_humanize.py:3003
 msgid "Image de comparaison"
 msgstr ""
 
-#: main_V2.py:1850
+#: main_V2_clean_humanize.py:3065
 msgid "Les deux images doivent être ajoutées à la comparaison."
 msgstr ""
 
-#: main_V2.py:1890
+#: main_V2_clean_humanize.py:3114
 #, python-brace-format
 msgid "**Variation d’aire totale :** {val:.1f} pixels²/mois"
 msgstr ""
 
-#: main_V2.py:1892
+#: main_V2_clean_humanize.py:3117
 #, python-brace-format
 msgid "**Variation relative :** {val:.2f}%/mois"
 msgstr ""
 
-#: main_V2.py:1896
+#: main_V2_clean_humanize.py:3128
 #, python-brace-format
 msgid "**Variation d’aire totale :** {val:.1f} pixels²/an"
 msgstr ""
 
-#: main_V2.py:1898
+#: main_V2_clean_humanize.py:3131
 #, python-brace-format
 msgid "**Variation relative :** {val:.2f}%/an"
 msgstr ""
 
-#: main_V2.py:1908
+#: main_V2_clean_humanize.py:3148
 msgid "Nombre de taches"
 msgstr ""
 
-#: main_V2.py:1910
+#: main_V2_clean_humanize.py:3155
 msgid "Aire totale (pixels²)"
 msgstr ""
 
-#: main_V2.py:1915
+#: main_V2_clean_humanize.py:3162
 msgid "Aire totale (% du nerf optique)"
 msgstr ""
 
-#: main_V2.py:1916 main_V2.py:1917
+#: main_V2_clean_humanize.py:3166 main_V2_clean_humanize.py:3171
 msgid "Non calculé"
 msgstr ""
 
-#: main_V2.py:1920
+#: main_V2_clean_humanize.py:3177
 msgid "Différence brute (Tx-T0)"
 msgstr ""
 
-#: main_V2.py:1924
+#: main_V2_clean_humanize.py:3183
 msgid "p.value (diff. aire totale)"
 msgstr ""
 
-#: main_V2.py:1925
+#: main_V2_clean_humanize.py:3189
 msgid "Non calculable"
 msgstr ""
 
-#: main_V2.py:1947
+#: main_V2_clean_humanize.py:3232
 msgid "Synthèse de l'évolution"
 msgstr ""
 
-#: main_V2.py:1978
+#: main_V2_clean_humanize.py:3287
 msgid "Aires lésionnelles T0"
 msgstr ""
 
-#: main_V2.py:1986
+#: main_V2_clean_humanize.py:3299
 msgid "Aires lésionnelles Tx"
 msgstr ""
 
-#: main_V2.py:1995
+#: main_V2_clean_humanize.py:3312
 msgid "Moyenne"
 msgstr ""
 
-#: main_V2.py:1999
+#: main_V2_clean_humanize.py:3316
 #, python-brace-format
 msgid "Moyenne : %{y:.0f} pixels²"
 msgstr ""
 
-#: main_V2.py:2039
+#: main_V2_clean_humanize.py:3356
 msgid "Informations patient enregistrées !"
 msgstr ""
 
-#: main_V2.py:2076
+#: main_V2_clean_humanize.py:3409
 #, python-brace-format
 msgid "Nom : {nom}"
 msgstr ""
 
-#: main_V2.py:2077
+#: main_V2_clean_humanize.py:3410
 #, python-brace-format
 msgid "Prénom : {prenom}"
 msgstr ""
 
-#: main_V2.py:2078
+#: main_V2_clean_humanize.py:3411
 #, python-brace-format
 msgid "Date de naissance : {dob}"
 msgstr ""
 
-#: main_V2.py:2183
+#: main_V2_clean_humanize.py:3420
+msgid "© 2025 – Réalisé par "
+msgstr ""
+
+#: main_V2_clean_humanize.py:3549
 msgid "Patient créé."
 msgstr ""
 
-#: main_V2.py:2186
+#: main_V2_clean_humanize.py:3552
 msgid "Ce patient existe déjà."
 msgstr ""
 
-#: main_V2.py:2189
+#: main_V2_clean_humanize.py:3559
 msgid "Veuillez remplir tous les champs."
 msgstr ""
 
-#: main_V2.py:2193
+#: main_V2_clean_humanize.py:3565
 msgid "Patient chargé."
 msgstr ""
 
-#: main_V2.py:2220
+#: main_V2_clean_humanize.py:3605
 msgid "Veuillez créer ou sélectionner un patient."
 msgstr ""
 
-#: main_V2.py:2225
+#: main_V2_clean_humanize.py:3613
 msgid "Ajouter un examen"
 msgstr ""
 
-#: main_V2.py:2230
+#: main_V2_clean_humanize.py:3623
 msgid "ou"
 msgstr ""
 
-#: main_V2.py:2231
+#: main_V2_clean_humanize.py:3626
 msgid "Importer un fichier local"
 msgstr ""
 
-#: main_V2.py:2236
+#: main_V2_clean_humanize.py:3636
 msgid "Manuelle"
 msgstr ""
 
-#: main_V2.py:2238
+#: main_V2_clean_humanize.py:3642
 msgid "Semi-auto"
 msgstr ""
 
-#: main_V2.py:2251
+#: main_V2_clean_humanize.py:3661
 msgid "Ce dossier est vide. Ajoutez un premier examen."
 msgstr ""
 
-#: main_V2.py:2276 main_V2.py:3356 main_V2.py:3600
+#: main_V2_clean_humanize.py:3702 main_V2_clean_humanize.py:5337
+#: main_V2_clean_humanize.py:5580
 msgid "Examen du"
 msgstr ""
 
-#: main_V2.py:2293 main_V2.py:3640
+#: main_V2_clean_humanize.py:3744 main_V2_clean_humanize.py:5649
 msgid "Nb. lésions"
 msgstr ""
 
-#: main_V2.py:2296 main_V2.py:3642
+#: main_V2_clean_humanize.py:3756 main_V2_clean_humanize.py:5651
 msgid "Aire moyenne"
 msgstr ""
 
-#: main_V2.py:2301
+#: main_V2_clean_humanize.py:3767
 msgid "Aire normalisée (ratio pupillaire)"
 msgstr ""
 
-#: main_V2.py:2345
+#: main_V2_clean_humanize.py:3834
 msgid "Identité du patient actif"
 msgstr ""
 
-#: main_V2.py:2374
+#: main_V2_clean_humanize.py:3894
 msgid "Enregistrer les modifications"
 msgstr ""
 
-#: main_V2.py:2403
+#: main_V2_clean_humanize.py:3939
 msgid "Tous les champs doivent être remplis."
 msgstr ""
 
-#: main_V2.py:2409
+#: main_V2_clean_humanize.py:3951
 msgid "Aucune modification détectée."
 msgstr ""
 
-#: main_V2.py:2413
+#: main_V2_clean_humanize.py:3959
 msgid "Un patient avec cette identité existe déjà."
 msgstr ""
 
-#: main_V2.py:2420
+#: main_V2_clean_humanize.py:3969
 msgid "Les informations du patient ont été mises à jour avec succès."
 msgstr ""
 
-#: main_V2.py:2506
+#: main_V2_clean_humanize.py:4078
 msgid "Veuillez spécifier la date de l'examen."
 msgstr ""
 
-#: main_V2.py:2517
+#: main_V2_clean_humanize.py:4093
 msgid "Annotation sauvegardée !"
 msgstr ""
 
-#: main_V2.py:2544
+#: main_V2_clean_humanize.py:4122
 msgid "Données insuffisantes"
 msgstr ""
 
-#: main_V2.py:2552
+#: main_V2_clean_humanize.py:4133
 msgid "Veuillez sélectionner au moins 2 examens pour une analyse complète."
 msgstr ""
 
-#: main_V2.py:2590 main_V2.py:3645
+#: main_V2_clean_humanize.py:4190 main_V2_clean_humanize.py:5654
 msgid "Ratio papillaire"
 msgstr ""
 
-#: main_V2.py:2590 main_V2.py:2752 main_V2.py:2775
+#: main_V2_clean_humanize.py:4190 main_V2_clean_humanize.py:4525
+#: main_V2_clean_humanize.py:4550
 msgid "pixels²"
 msgstr ""
 
-#: main_V2.py:2605
+#: main_V2_clean_humanize.py:4236
 msgid "Intervalle interquartile"
 msgstr ""
 
-#: main_V2.py:2608
+#: main_V2_clean_humanize.py:4246
 msgid "Médiane des aires"
 msgstr ""
 
-#: main_V2.py:2615
+#: main_V2_clean_humanize.py:4258
 msgid "Aire individuelle"
 msgstr ""
 
-#: main_V2.py:2621
+#: main_V2_clean_humanize.py:4267
 msgid "Suivi individuel non disponible (ID de lésion manquants)"
 msgstr ""
 
-#: main_V2.py:2624 main_V2.py:2627 main_V2.py:2670
+#: main_V2_clean_humanize.py:4276 main_V2_clean_humanize.py:4283
+#: main_V2_clean_humanize.py:4349 main_V2_clean_humanize.py:4381
+#: main_V2_clean_humanize.py:4403 main_V2_clean_humanize.py:4424
 msgid "Disparition"
 msgstr ""
 
-#: main_V2.py:2738
+#: main_V2_clean_humanize.py:4513
 msgid "Statut"
 msgstr ""
 
-#: main_V2.py:2775
+#: main_V2_clean_humanize.py:4550
 msgid "d'aire papillaire"
 msgstr ""
 
-#: main_V2.py:2777
+#: main_V2_clean_humanize.py:4553
 msgid ""
 "Analyse réalisée sur des aires normalisées par la surface de la papille."
 msgstr ""
 
-#: main_V2.py:2778
+#: main_V2_clean_humanize.py:4557
 msgid ""
 "Analyse réalisée sur des aires brutes (pixels²), car la papille n'a pas été "
 "détectée sur au moins un examen."
 msgstr ""
 
-#: main_V2.py:2813
+#: main_V2_clean_humanize.py:4606
 msgid "Analyse des aires globales (Test de permutation)"
 msgstr ""
 
-#: main_V2.py:2816
+#: main_V2_clean_humanize.py:4612
 msgid ""
 "Ce test non-paramétrique compare la distribution de l'ensemble des aires "
 "lésionnelles entre le premier et le dernier examen."
 msgstr ""
 
-#: main_V2.py:2818
+#: main_V2_clean_humanize.py:4619
 msgid "Significativité de la variation globale (p-value) : "
 msgstr ""
 
-#: main_V2.py:2836
+#: main_V2_clean_humanize.py:4656
 msgid "Analyse des lésions appariées (Test t de Student)"
 msgstr ""
 
-#: main_V2.py:2839
+#: main_V2_clean_humanize.py:4662
 #, python-brace-format
 msgid ""
 "Ce test compare les aires des {n_lesions} lésions appariées pour déterminer "
 "si la variation moyenne est significative."
 msgstr ""
 
-#: main_V2.py:2842
+#: main_V2_clean_humanize.py:4668
 msgid "Variation moyenne par lésion : "
 msgstr ""
 
-#: main_V2.py:2847
+#: main_V2_clean_humanize.py:4687
 msgid "Significativité de la variation (p-value) : "
 msgstr ""
 
-#: main_V2.py:2872
+#: main_V2_clean_humanize.py:4736
 msgid "Modèle de progression linéaire à effets mixtes"
 msgstr ""
 
-#: main_V2.py:2875
+#: main_V2_clean_humanize.py:4742
 #, python-brace-format
 msgid ""
 "Ce modèle estime une trajectoire de croissance moyenne pour {n_lesions} "
 "lésions suivies sur {n_dates} examens."
 msgstr ""
 
-#: main_V2.py:2878
+#: main_V2_clean_humanize.py:4752
 msgid "Progression annuelle moyenne estimée : "
 msgstr ""
 
-#: main_V2.py:2883
+#: main_V2_clean_humanize.py:4772
 msgid "Significativité de la progression (p-value) : "
 msgstr ""
 
-#: main_V2.py:2895
+#: main_V2_clean_humanize.py:4803
 msgid "Données insuffisantes pour une analyse statistique détaillée."
 msgstr ""
 
-#: main_V2.py:2924
+#: main_V2_clean_humanize.py:4843
 msgid "Les annotations de référence (gauche) sont manquantes."
 msgstr ""
 
-#: main_V2.py:2925
+#: main_V2_clean_humanize.py:4847
 msgid "Les annotations de comparaison (droite) sont manquantes."
 msgstr ""
 
-#: main_V2.py:2926
+#: main_V2_clean_humanize.py:4850
 msgid "L'image de référence (gauche) est manquante."
 msgstr ""
 
-#: main_V2.py:2927
+#: main_V2_clean_humanize.py:4852
 msgid "L'image de comparaison (droite) est manquante."
 msgstr ""
 
-#: main_V2.py:2929
+#: main_V2_clean_humanize.py:4854
 msgid "Erreur de workflow :"
 msgstr ""
 
-#: main_V2.py:2931
+#: main_V2_clean_humanize.py:4860
 msgid "Données Manquantes"
 msgstr ""
 
-#: main_V2.py:2938
+#: main_V2_clean_humanize.py:4876
 msgid "Image de référence (T0)"
 msgstr ""
 
-#: main_V2.py:2941
+#: main_V2_clean_humanize.py:4882
 msgid "Image de comparaison (T1)"
 msgstr ""
 
-#: main_V2.py:2944
+#: main_V2_clean_humanize.py:4885
 msgid "Appariement Automatique"
 msgstr ""
 
-#: main_V2.py:2949
+#: main_V2_clean_humanize.py:4897
 msgid "Exporter T0 Augmenté"
 msgstr ""
 
-#: main_V2.py:2950
+#: main_V2_clean_humanize.py:4902
 msgid "Exporter T1 Augmenté"
 msgstr ""
 
-#: main_V2.py:2959
+#: main_V2_clean_humanize.py:4921
 msgid "Erreur d'Exécution"
 msgstr ""
 
-#: main_V2.py:3038
+#: main_V2_clean_humanize.py:5001
 #, python-format
 msgid "Lancer l'Atelier d'Appariement en Chaîne (%s examens)"
 msgstr ""
 
-#: main_V2.py:3045
+#: main_V2_clean_humanize.py:5010
 msgid ""
 "Veuillez sélectionner au moins 2 examens pour lancer un appariement en "
 "chaîne."
 msgstr ""
 
-#: main_V2.py:3090
+#: main_V2_clean_humanize.py:5067
 msgid ""
 "Vous êtes sur le point de lancer un appariement en chaîne automatisé. Les "
 "identifiants des lésions seront propagés séquentiellement à travers les "
 "examens dans l'ordre chronologique suivant :"
 msgstr ""
 
-#: main_V2.py:3095
+#: main_V2_clean_humanize.py:5076
 msgid ""
 "Cette opération écrasera les appariements précédents pour les examens "
 "sélectionnés. Êtes-vous sûr ?"
 msgstr ""
 
-#: main_V2.py:3101
+#: main_V2_clean_humanize.py:5084
 msgid "Annuler"
 msgstr ""
 
-#: main_V2.py:3103
+#: main_V2_clean_humanize.py:5087
 msgid "Confirmer et Lancer la Chaîne"
 msgstr ""
 
-#: main_V2.py:3169
+#: main_V2_clean_humanize.py:5152
 msgid "Appariement en chaîne simplifié terminé !"
 msgstr ""
 
-#: main_V2.py:3288
+#: main_V2_clean_humanize.py:5244
 #, python-format
 msgid "Dossier pour '%s' importé et chargé avec succès."
 msgstr ""
 
-#: main_V2.py:3298
+#: main_V2_clean_humanize.py:5254
 #, python-format
 msgid "Erreur lors de l'importation du fichier : %s"
 msgstr ""
 
-#: main_V2.py:3331
+#: main_V2_clean_humanize.py:5297
 msgid "Rapport de Suivi FundusTracker"
 msgstr ""
 
-#: main_V2.py:3333 main_V2.py:3575
+#: main_V2_clean_humanize.py:5299 main_V2_clean_humanize.py:5557
 msgid "Patient"
 msgstr ""
 
-#: main_V2.py:3335 main_V2.py:3577
+#: main_V2_clean_humanize.py:5301 main_V2_clean_humanize.py:5559
 msgid "Date du rapport"
 msgstr ""
 
-#: main_V2.py:3360
+#: main_V2_clean_humanize.py:5348
 msgid "Nombre de lésions: "
 msgstr ""
 
-#: main_V2.py:3361
+#: main_V2_clean_humanize.py:5354
 msgid "Aire totale des lésions: "
 msgstr ""
 
-#: main_V2.py:3371
+#: main_V2_clean_humanize.py:5375
 msgid "Détail des Examens Sélectionnés"
 msgstr ""
 
-#: main_V2.py:3379
+#: main_V2_clean_humanize.py:5384
 msgid "Analyse Longitudinale"
 msgstr ""
 
-#: main_V2.py:3564
+#: main_V2_clean_humanize.py:5546
 msgid "Informations patient"
 msgstr ""
 
-#: main_V2.py:3593
+#: main_V2_clean_humanize.py:5570
 msgid "Examens réalisés"
 msgstr ""
 
-#: main_V2.py:3700
-msgid "Analyses statistiques"
+#: main_V2_clean_humanize.py:5808
+msgid "Erreur lors de la génération de l analyse :"
 msgstr ""
 
-#: main_V2.py:3782
-msgid "Erreur lors de la génération de l analyse :"
+#: main_V2_clean_humanize.py:5918
+msgid "Erreur : Aucune image principale chargée."
+msgstr ""
+
+#: main_V2_clean_humanize.py:5928
+msgid "Erreur : Veuillez choisir une image de référence."
+msgstr ""
+
+#: main_V2_clean_humanize.py:5941
+msgid "Résultat visuel :"
+msgstr ""
+
+#: main_V2_clean_humanize.py:5951
+msgid "Alignement réussi !"
 msgstr ""
