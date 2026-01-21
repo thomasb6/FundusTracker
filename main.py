@@ -657,6 +657,163 @@ def align_images_sift_simple(ref_img_b64, target_img_b64):
         return None, str(e)
 
 
+def layout_about(language):
+    _ = get_translator(language)
+    def create_profile_card(name, title, affiliations, bio, image_name, links):
+        buttons = []
+        if "linkedin" in links:
+            buttons.append(
+                dbc.Button(
+                    [html.I(className="fab fa-linkedin me-2"), "LinkedIn"],
+                    href=links["linkedin"], target="_blank", color="primary", outline=True, size="sm", className="me-2"
+                )
+            )
+        if "pubmed" in links:
+            buttons.append(
+                dbc.Button(
+                    [html.I(className="fas fa-book-medical me-2"), "PubMed"],
+                    href=links["pubmed"], target="_blank", color="secondary", outline=True, size="sm", className="me-2"
+                )
+            )
+        if "researchgate" in links:
+            buttons.append(
+                dbc.Button(
+                    [html.I(className="fab fa-researchgate me-2"), "ResearchGate"],
+                    href=links["researchgate"], target="_blank", color="success", outline=True, size="sm"
+                )
+            )
+
+        return dbc.Card(
+            dbc.Row(
+                [
+                    dbc.Col(
+                        dbc.CardImg(
+                            src=app.get_asset_url(image_name),
+                            className="img-fluid rounded-start",
+                            style={"height": "160px", "width": "160px", "objectFit": "cover"}
+                        ),
+                        className="col-md-auto d-flex align-items-center justify-content-center p-3",
+                    ),
+                    dbc.Col(
+                        dbc.CardBody(
+                            [
+                                html.H4(name, className="card-title fw-bold text-primary"),
+                                html.H6(title, className="card-subtitle text-muted mb-2"),
+                                html.Div(affiliations, className="small text-secondary mb-3 fst-italic"),
+                                html.P(bio, className="card-text", style={"fontSize": "0.95rem"}),
+                                html.Div(buttons, className="mt-3")
+                            ]
+                        ),
+                        className="col-md",
+                    ),
+                ],
+                className="g-0 align-items-center",
+            ),
+            className="mb-4 shadow-sm border-light",
+        )
+
+    card_thomas = create_profile_card(
+        name="Dr. Thomas Foulonneau, MD",
+        title=_("Interne des Hôpitaux de Paris | Master Bio-informatique"),
+        affiliations=_("Université Paris Cité"),
+        bio=_(
+            "Conception technique et développement logiciel. Ce travail constitue le volet applicatif de sa recherche doctorale, combinant expertise médicale et ingénierie pour l'automatisation de l'imagerie rétinienne."),
+        image_name="photo_thomas.jpg",
+        links={
+            "linkedin": "https://www.linkedin.com/in/thomas-foulonneau",
+            "pubmed": "https://pubmed.ncbi.nlm.nih.gov/?term=Foulonneau+Thomas",
+        }
+    )
+    card_alienor = create_profile_card(
+        name="Dr. Aliénor Vienne-Jumeau, MD, PhD",
+        title=_("Docteur Junior 2 | Ophtalmologiste"),
+        affiliations=_("CHNO des Quinze-Vingts, Paris | AP-HP"),
+        bio=_(
+            "Direction scientifique et supervision clinique. À l'initiative du projet médical, elle encadre la définition des biomarqueurs et assure la validation méthodologique de l'analyse longitudinale."),
+        image_name="photo_alienor.jpg",
+        links={
+            "linkedin": "https://www.linkedin.com/in/aliénor-vienne-jumeau-6210a085/",
+            "pubmed": "https://pubmed.ncbi.nlm.nih.gov/?term=Vienne-Jumeau+Aliénor"
+        }
+    )
+    faq_items = [
+        dbc.AccordionItem(
+            [
+                html.P(
+                    _("FundusTracker est un logiciel de recherche clinique conçu pour l'analyse longitudinale d'images rétiniennes (Birdshot, DMLA, Tumeurs).")),
+                html.P(
+                    _("Il permet la quantification standardisée des surfaces lésionnelles et l'analyse de leur cinétique d'évolution.")),
+            ],
+            title=_("Objectif scientifique"),
+        ),
+        dbc.AccordionItem(
+            [
+                html.P(_("Les mesures brutes sont en pixels².")),
+                html.P(_("La conversion en mm² repose sur deux méthodes :")),
+                html.Ul([
+                    html.Li(
+                        _("Calibration relative : Basée sur le diamètre horizontal moyen du disque optique (standardisé à 1.8 mm).")),
+                    html.Li(
+                        _("Correction de Bennett : Ajustement optique précis si la Longueur Axiale du patient est renseignée.")),
+                ])
+            ],
+            title=_("Méthodologie de calibration"),
+        ),
+        dbc.AccordionItem(
+            [
+                html.P(_("FundusTracker respecte les principes de 'Privacy by Design'.")),
+                html.P(
+                    _("Le traitement des images est effectué localement (Client-side ou Localhost). Aucune donnée de santé identifiante n'est transmise à des serveurs tiers ou stockée dans le cloud.")),
+            ],
+            title=_("Confidentialité des données"),
+        ),
+        dbc.AccordionItem(
+            [
+                html.P(_("L'outil intègre un classifieur Random Forest pour la segmentation assistée.")),
+                html.P(
+                    _("L'utilisateur définit des régions d'intérêt (Gribouillage/Squiggles) pour entraîner le modèle en temps réel sur l'image active, permettant une segmentation rapide des lésions complexes. (prototype)")),
+            ],
+            title=_("Algorithme de segmentation (Prototype)"),
+        ),
+    ]
+
+    return html.Div(
+        dbc.Container([
+            dbc.Row([
+                dbc.Col([
+                    html.H4([html.I(className="fas fa-university me-2"), _("Équipe de recherche")],
+                            className="mb-4 border-bottom pb-2"),
+                    card_thomas,
+                    card_alienor,
+                    dbc.Card(
+                        dbc.CardBody([
+                            html.H6([html.I(className="fas fa-quote-left me-2 text-muted"), _("Citation & licence")],
+                                    className="card-title fw-bold"),
+                            html.P(
+                                _("Code source sous licence GPL."),
+                                className="small text-muted mb-2"
+                            ),
+                            dbc.Button(
+                                [html.I(className="fab fa-github me-2"), "Repository GitHub"],
+                                href=f"https://github.com/{REPO_OWNER}/{REPO_NAME}",
+                                external_link=True,
+                                color="dark",
+                                size="sm",
+                                className="mt-1"
+                            )
+                        ]),
+                        className="bg-light border-0"
+                    )
+                ], width=12, lg=6, className="mb-5"),
+                dbc.Col([
+                    html.H4([html.I(className="fas fa-info-circle me-2"), _("Informations techniques")],
+                            className="mb-4 border-bottom pb-2"),
+                    dbc.Accordion(faq_items, start_collapsed=False, flush=True),
+                ], width=12, lg=6)
+            ])
+        ], fluid=True, className="pt-4 pb-5")
+    )
+
 scatter_fig = go.Figure(
     go.Scattergl(
         x=np.random.randn(1000),
@@ -1881,6 +2038,11 @@ def serve_layout(language):
                         value="tab-patients",
                         children=layout_patients(),
                     ),
+                    dcc.Tab(
+                        label=_("FAQ & À propos"),
+                        value="tab-about",
+                        children=layout_about(language),
+                    ),
                 ],
             ),
             html.Footer(
@@ -1888,19 +2050,7 @@ def serve_layout(language):
                     [
                         html.Div(
                             [
-                                _("© 2026 – Réalisé par "),
-                                html.A(
-                                    "Thomas Foulonneau",
-                                    href="https://www.linkedin.com/in/thomas-foulonneau?originalSubdomain=fr",
-                                    target="_blank",
-                                    style={
-                                        "color": "#ffffff",
-                                        "textDecoration": "underline",
-                                    },
-                                ),
-                                _(
-                                    " & Aliénor Vienne-Jumeau"
-                                ),
+                                _("© 2026 – Réalisé par Thomas Foulonneau & Aliénor Vienne-Jumeau")
                             ],
                             style={
                                 "flex": "1",
@@ -3241,14 +3391,7 @@ def render_pdf_report(patient_infos, summary_card, language):
             html.Footer(
                 html.Div(
                     [
-                        _("© 2025 – Réalisé par "),
-                        html.A(
-                            "Thomas Foulonneau",
-                            href="https://www.linkedin.com/in/thomas-foulonneau?originalSubdomain=fr",
-                            target="_blank",
-                            style={"color": "#636e72", "textDecoration": "underline"},
-                        ),
-                        _(" & Aliénor Vienne-Jumeau"),
+                        _("© 2025 – Réalisé par Thomas Foulonneau & Aliénor Vienne-Jumeau")
                     ]
                 ),
                 style={
