@@ -8,7 +8,7 @@ import re
 import uuid
 import zipfile
 from PIL import Image
-from dash import Dash, html, dcc, Input, Output, State, ctx
+from dash import Dash, html, dcc, Input, Output, State, ctx, Patch
 from dash import callback_context
 from dash import clientside_callback, Output, Input
 from dash.dependencies import ALL
@@ -2154,112 +2154,81 @@ def update_language(fr_clicks, en_clicks):
     State("language-store", "data"),
 )
 def update_figure(
-    file_val,
-    uploaded_image,
-    annotation_image_id,
-    reset_clicks,
-    stored_shapes,
-    show_zone_numbers,
-    dashed_contour,
-    zoom,
-    rotation,
-    current_fig,
-    language,
+        file_val, uploaded_image, annotation_image_id, reset_clicks,
+        stored_shapes, show_zone_numbers, dashed_contour,
+        zoom, rotation, current_fig, language
 ):
     _ = get_translator(language)
-
-    image_id = annotation_image_id or file_val or uploaded_image
-
-    width, height = 700, 700
-    fig = scatter_fig
-
-    if image_id:
-        try:
-            img = load_image_any(image_id)
-            if img:
-                width, height = img.size
+    triggered_id = ctx.triggered_id
+    image_triggers = ["file-dropdown", "uploaded-image-store", "annotation-image-store", "reset-button"]
+    if triggered_id in image_triggers or current_fig is None or "layout" not in current_fig:
+        image_id = annotation_image_id or file_val or uploaded_image
+        if image_id:
+            try:
+                img = load_image_any(image_id)
                 fig = generate_figure(img, file_val=image_id)
-        except Exception:
-            fig = scatter_fig
+                fig["layout"]["shapes"] = []
+                return fig
+            except Exception:
+                return scatter_fig
+        return scatter_fig
 
-    cx, cy = width / 2, height / 2
+    patched_fig = Patch()
 
-    if stored_shapes is not None:
-        plotly_shapes = []
-        for shape in stored_shapes:
+    try:
+        width = current_fig["layout"]["xaxis"]["range"][1]
+        height = current_fig["layout"]["yaxis"]["range"][0]
+    except:
+        width, height = 700, 700
 
+    cx, cy = width / 2, abs(height) / 2
+
+    new_plotly_shapes = []
+    new_annotations = []
+
+    if stored_shapes:
+        for i, shape in enumerate(stored_shapes):
             shape_t = transform_shape(shape, zoom, rotation, (cx, cy))
 
             shape_t["editable"] = True
             shape_t["layer"] = "above"
-            shape_t["xref"] = "x"
-            shape_t["yref"] = "y"
-
-            if "line" not in shape_t:
-                shape_t["line"] = {}
             shape_t["line"]["width"] = 3
             shape_t["line"]["dash"] = "dot" if dashed_contour else "solid"
 
-            current_color = shape_t["line"].get("color", "white")
-
-            if current_color == "yellow":
-
+            if shape_t.get("customdata") == _("nerf optique"):
                 shape_t["fillcolor"] = "rgba(255, 255, 0, 0.2)"
+                shape_t["line"]["color"] = "yellow"
             elif shape_t.get("customdata") == _("Exclusion"):
-
                 shape_t["fillcolor"] = "rgba(0, 0, 0, 0.4)"
+                shape_t["line"]["color"] = "gray"
             else:
-
                 shape_t["fillcolor"] = "rgba(255, 255, 255, 0.2)"
+                shape_t["line"]["color"] = shape.get("line", {}).get("color", "white")
 
-            plotly_shapes.append(shape_for_plotly(shape_t))
+            new_plotly_shapes.append(shape_for_plotly(shape_t))
 
-        fig["layout"]["shapes"] = plotly_shapes
-
-        annotations = []
-        if show_zone_numbers:
-
-            def centroid(coords):
-                if not coords:
-                    return 0, 0
-                avg_x = sum(x for x, y in coords) / len(coords)
-                avg_y = sum(y for x, y in coords) / len(coords)
-                return avg_x, avg_y
-
-            for i, shape in enumerate(stored_shapes):
-
+            if show_zone_numbers:
                 coords = []
                 if shape.get("type") == "circle":
                     coords = circle_to_coords(shape)
                 else:
-                    path_str = shape.get("path", "")
-                    matches = re.findall(r"[-+]?\d*\.\d+|\d+", path_str)
-                    try:
-                        coords = [
-                            (float(matches[j]), float(matches[j + 1]))
-                            for j in range(0, len(matches), 2)
-                        ]
-                    except Exception:
-                        coords = []
+                    matches = re.findall(r"[-+]?\d*\.\d+|\d+", shape.get("path", ""))
+                    coords = [(float(matches[j]), float(matches[j + 1])) for j in range(0, len(matches), 2)]
 
                 coords_t = transform_coords(coords, zoom, rotation, (cx, cy))
-                cx_ann, cy_ann = centroid(coords_t)
+                if coords_t:
+                    ann_x = sum(p[0] for p in coords_t) / len(coords_t)
+                    ann_y = sum(p[1] for p in coords_t) / len(coords_t)
+                    new_annotations.append(dict(
+                        x=ann_x, y=ann_y, text=str(i + 1),
+                        showarrow=True, arrowhead=2, ax=0, ay=-20,
+                        font=dict(color="white", size=12)
+                    ))
 
-                annotations.append(
-                    dict(
-                        x=cx_ann,
-                        y=cy_ann,
-                        text=str(i + 1),
-                        showarrow=True,
-                        arrowhead=2,
-                        ax=0,
-                        ay=-20,
-                        font=dict(color="white", size=12, shadow="1px 1px 2px black"),
-                    )
-                )
-        fig["layout"]["annotations"] = annotations
+    patched_fig["layout"]["shapes"] = new_plotly_shapes
+    patched_fig["layout"]["annotations"] = new_annotations
 
-    return fig
+    return patched_fig
 
 
 def find_optic_nerve(shapes, language):
