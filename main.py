@@ -981,6 +981,16 @@ def serve_layout(language):
                         ),
                         html.Div(
                             [
+                                dbc.Button(
+                                    [html.I(className="fas fa-eye me-2"), "Masquer/afficher annotations (h)"],
+                                    id="toggle-visibility-btn",
+                                    color="secondary",
+                                    outline=True,
+                                    size="sm",
+                                    className="mb-2",
+                                    style={"zIndex": "1000", "position": "relative"}
+                                    # Pour être sûr qu'il est cliquable
+                                ),
                                 dcc.Graph(
                                     id="fig-image",
                                     config=config_graph,
@@ -1231,17 +1241,31 @@ def serve_layout(language):
                                     ),
                                 ),
                                 html.P(_("Réinitialiser :")),
-                                dbc.Button(
+                                html.Div(
                                     [
-                                        html.I(
-                                            className="fas fa-undo",
-                                            style={"margin-right": "5px"},
+                                        dbc.Button(
+                                            [
+                                                html.I(className="fas fa-history", style={"marginRight": "5px"}),
+                                                _("Annuler (z)"),
+                                            ],
+                                            id="undo-button",
+                                            color="warning",  # Couleur distincte (orange/jaune)
+                                            outline=True,
+                                            className="me-2",  # Marge à droite pour séparer du Reset
+                                            style={"flex": "1"}
                                         ),
-                                        _("Réinitialiser les zones annotées"),
+                                        dbc.Button(
+                                            [
+                                                html.I(className="fas fa-trash-alt", style={"marginRight": "5px"}),
+                                                _("Tout effacer"),
+                                            ],
+                                            id="reset-button",
+                                            color="danger",
+                                            outline=True,
+                                            style={"flex": "1"}
+                                        ),
                                     ],
-                                    id="reset-button",
-                                    color="danger",
-                                    className="mb-2",
+                                    className="d-flex mb-2 w-100"  # Flexbox pour les aligner côte à côte
                                 ),
                                 html.P(_("Exporter :")),
                                 dbc.Button(
@@ -2113,6 +2137,8 @@ def serve_layout(language):
             dcc.Store(id="annotation-image-store", data=None),
             dcc.Store(id="selected-exams-store", data=[]),
             dcc.Store(id="local-filename-store", data=None),
+            dcc.Store(id="visibility-store", data=True),
+            dcc.Store(id="undo-store", data=[]),
         ]
     )
 
@@ -2150,17 +2176,22 @@ def update_language(fr_clicks, en_clicks):
     Input("dashed-contour", "value"),
     Input("zoom-slider", "value"),
     Input("rotation-slider", "value"),
+    Input("visibility-store", "data"),
     State("fig-image", "figure"),
     State("language-store", "data"),
 )
 def update_figure(
         file_val, uploaded_image, annotation_image_id, reset_clicks,
         stored_shapes, show_zone_numbers, dashed_contour,
-        zoom, rotation, current_fig, language
+        zoom, rotation, visibility_state, current_fig, language
 ):
     _ = get_translator(language)
     triggered_id = ctx.triggered_id
+
+    # Liste des triggers qui nécessitent un rechargement complet (changement d'image)
     image_triggers = ["file-dropdown", "uploaded-image-store", "annotation-image-store", "reset-button"]
+
+    # 1. Si on change d'image : on renvoie TOUTE la figure (lent mais nécessaire une seule fois)
     if triggered_id in image_triggers or current_fig is None or "layout" not in current_fig:
         image_id = annotation_image_id or file_val or uploaded_image
         if image_id:
@@ -2173,9 +2204,12 @@ def update_figure(
                 return scatter_fig
         return scatter_fig
 
+    # 2. Si on modifie juste les formes/zoom/visibilité : On utilise PATCH (Très rapide)
     patched_fig = Patch()
 
     try:
+        # On récupère les dimensions actuelles pour le centre de rotation
+        # (On lit dans current_fig pour ne pas avoir à recharger l'image)
         width = current_fig["layout"]["xaxis"]["range"][1]
         height = current_fig["layout"]["yaxis"]["range"][0]
     except:
@@ -2186,15 +2220,30 @@ def update_figure(
     new_plotly_shapes = []
     new_annotations = []
 
+    # Gestion de la visibilité
+    # Par défaut True si None
+    is_visible = True if visibility_state is None else visibility_state
+
     if stored_shapes:
         for i, shape in enumerate(stored_shapes):
+            # Transformation géométrique (Zoom/Rotation)
             shape_t = transform_shape(shape, zoom, rotation, (cx, cy))
 
-            shape_t["editable"] = True
+            # --- ASTUCE PERFORMANCE & BUG FIX ---
+            # Au lieu de retirer la forme (ce qui bug avec Patch), on la rend transparente.
+            shape_t["opacity"] = 1 if is_visible else 0
+
+            # On désactive l'édition si invisible pour ne pas déplacer une forme qu'on ne voit pas
+            shape_t["editable"] = True if is_visible else False
+
+            # On force la visibilité à True car on gère via l'opacité
+            shape_t["visible"] = True
+
             shape_t["layer"] = "above"
             shape_t["line"]["width"] = 3
             shape_t["line"]["dash"] = "dot" if dashed_contour else "solid"
 
+            # Couleurs
             if shape_t.get("customdata") == _("nerf optique"):
                 shape_t["fillcolor"] = "rgba(255, 255, 0, 0.2)"
                 shape_t["line"]["color"] = "yellow"
@@ -2207,7 +2256,8 @@ def update_figure(
 
             new_plotly_shapes.append(shape_for_plotly(shape_t))
 
-            if show_zone_numbers:
+            # Numéros de zone
+            if show_zone_numbers and is_visible:
                 coords = []
                 if shape.get("type") == "circle":
                     coords = circle_to_coords(shape)
@@ -2225,8 +2275,14 @@ def update_figure(
                         font=dict(color="white", size=12)
                     ))
 
+    # Mise à jour via Patch (Rapide car on n'envoie pas l'image de fond)
     patched_fig["layout"]["shapes"] = new_plotly_shapes
     patched_fig["layout"]["annotations"] = new_annotations
+
+    # --- FIX DU CARRÉ FANTÔME ---
+    # Si on masque, on vide explicitement la liste des sélections actives dans Plotly
+    if not is_visible:
+        patched_fig["layout"]["selections"] = []
 
     return patched_fig
 
@@ -2245,6 +2301,7 @@ def find_optic_nerve(shapes, language):
     Output("upload-div", "children"),
     Output("file-dropdown", "value"),
     Output("tab-value-store", "data"),
+    Output("undo-store", "data"),  # 6ème Output
     Input("add-nerf-optique-button", "n_clicks"),
     Input("fig-image", "relayoutData"),
     Input("reset-button", "n_clicks"),
@@ -2254,38 +2311,84 @@ def find_optic_nerve(shapes, language):
     Input("ml-accept-zones-btn", "n_clicks"),
     Input("apply-custom-label-btn", "n_clicks"),
     Input("axial-length-input", "value"),
+    Input("undo-button", "n_clicks"),
     State("stored-shapes", "data"),
     State("zone-selector", "value"),
     State("ml-segmentation-mask", "data"),
     State("ml-file-dropdown", "value"),
     State("language-store", "data"),
     State("custom-label-input", "value"),
+    State("undo-store", "data"),
     prevent_initial_call=True,
 )
 def update_shapes_combined(
-    add_nerf_clicks,
-    relayout_data,
-    reset_clicks,
-    classify_clicks,
-    upload_contents,
-    file_val,
-    ml_accept_clicks,
-    apply_custom_clicks,
-    axial_length,
-    stored_shapes,
-    selected_zone_idx,
-    mask_json,
-    ml_file_val,
-    language,
-    custom_label_text,
+        add_nerf_clicks,
+        relayout_data,
+        reset_clicks,
+        classify_clicks,
+        upload_contents,
+        file_val,
+        ml_accept_clicks,
+        apply_custom_clicks,
+        axial_length,
+        undo_clicks,
+        stored_shapes,
+        selected_zone_idx,
+        mask_json,
+        ml_file_val,
+        language,
+        custom_label_text,
+        undo_history  # State undo-store
 ):
     _ = get_translator(language)
     trigger_id_obj = ctx.triggered[0]["prop_id"] if ctx.triggered else "initial_load"
     trigger = ctx.triggered_id
 
+    # Assurer que l'historique est une liste
+    undo_history = undo_history or []
     new_upload = dash.no_update
     shapes = stored_shapes.copy() if stored_shapes is not None else []
     optic_nerve_label = _("nerf optique")
+
+    # --- 1. LOGIQUE ANNULER (UNDO) ---
+    if trigger == "undo-button":
+        if undo_history:
+            # On récupère le dernier état
+            previous_shapes = undo_history.pop()
+            summary = generate_summary(previous_shapes, language, axial_length)
+            # Retourne 6 valeurs
+            return previous_shapes, summary, new_upload, dash.no_update, dash.no_update, undo_history
+        else:
+            # Retourne 6 valeurs
+            return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
+
+    # --- 2. CHANGEMENT D'IMAGE (Reset de l'historique) ---
+    if trigger == "file-dropdown":
+        # On vide l'historique car c'est une nouvelle image
+        # Retourne 6 valeurs (la dernière est [])
+        return [], generate_summary([], language, axial_length), new_upload, dash.no_update, dash.no_update, []
+
+    # --- 3. SAUVEGARDE AVANT MODIFICATION ---
+    # Liste des triggers qui modifient les formes
+    modification_triggers = [
+        "add-nerf-optique-button",
+        "fig-image",  # relayoutData
+        "reset-button",
+        "ml-accept-zones-btn",
+        "apply-custom-label-btn",
+        "upload-annotations"
+    ]
+
+    # Si c'est un bouton de classification (dictionnaire)
+    is_classify = isinstance(trigger, dict) and trigger.get("type") == "classify-button"
+
+    # Si on va modifier quelque chose, on empile l'état ACTUEL (avant modif) dans l'historique
+    if (trigger in modification_triggers or is_classify) and stored_shapes is not None:
+        undo_history.append(stored_shapes)
+        if len(undo_history) > 20:  # Limite mémoire
+            undo_history.pop(0)
+
+    # --- 4. LOGIQUE DES MODIFICATIONS ---
 
     if trigger == "ml-accept-zones-btn":
         if not mask_json or not ml_file_val:
@@ -2295,6 +2398,7 @@ def update_shapes_combined(
                 new_upload,
                 dash.no_update,
                 dash.no_update,
+                undo_history  # <--- AJOUTÉ
             )
         mask = np.array(json.loads(mask_json))
         papille_shapes = mask_to_shapes(mask, label_value=1, min_area=20)
@@ -2312,7 +2416,8 @@ def update_shapes_combined(
         for i, sh in enumerate(new_shapes):
             sh["customid"] = i + 1
         summary = generate_summary(new_shapes, language, axial_length)
-        return new_shapes, summary, new_upload, ml_file_val, "tab-manuelle"
+        # Retourne 6 valeurs
+        return new_shapes, summary, new_upload, ml_file_val, "tab-manuelle", undo_history
 
     if trigger == "reset-button":
         new_upload = [
@@ -2328,7 +2433,8 @@ def update_shapes_combined(
                 multiple=False,
             )
         ]
-        return [], _("Annotations réinitialisées."), new_upload, None, dash.no_update
+        # Retourne 6 valeurs
+        return [], _("Annotations réinitialisées."), new_upload, None, dash.no_update, undo_history
 
     if trigger == "upload-annotations" and upload_contents:
         content_type, content_string = upload_contents.split(",")
@@ -2343,20 +2449,23 @@ def update_shapes_combined(
         except Exception:
             shapes = []
         summary = generate_summary(shapes, language, axial_length)
-        return shapes, summary, new_upload, dash.no_update, dash.no_update
+        # Retourne 6 valeurs
+        return shapes, summary, new_upload, dash.no_update, dash.no_update, undo_history
 
     if trigger == "file-dropdown" and file_val:
-
+        # Note: Ce bloc est redondant avec le bloc "CHANGEMENT D'IMAGE" plus haut
+        # mais s'il est atteint, on renvoie aussi 6 valeurs
         shapes = []
-
         summary = generate_summary(shapes, language, axial_length)
-        return shapes, summary, new_upload, dash.no_update, dash.no_update
+        return shapes, summary, new_upload, dash.no_update, dash.no_update, []
 
     if trigger == "add-nerf-optique-button":
         optic_nerve_idx, _shape = find_optic_nerve(shapes, language)
         if optic_nerve_idx is not None:
             summary = generate_summary(shapes, language, axial_length)
-            return shapes, summary, new_upload, dash.no_update, dash.no_update
+            # Retourne 6 valeurs
+            return shapes, summary, new_upload, dash.no_update, dash.no_update, undo_history
+
         image_id = file_val or None
         width, height = (700, 700)
         if image_id:
@@ -2381,7 +2490,8 @@ def update_shapes_combined(
         }
         shapes.insert(0, optic_nerve_circle)
         summary = generate_summary(shapes, language, axial_length)
-        return shapes, summary, new_upload, dash.no_update, dash.no_update
+        # Retourne 6 valeurs
+        return shapes, summary, new_upload, dash.no_update, dash.no_update, undo_history
 
     if isinstance(trigger, dict) and trigger.get("type") == "classify-button":
         label = trigger["index"]
@@ -2396,7 +2506,8 @@ def update_shapes_combined(
                         color="danger",
                         duration=3000,
                     )
-                    return shapes, summary, new_upload, dash.no_update, dash.no_update
+                    # Retourne 6 valeurs
+                    return shapes, summary, new_upload, dash.no_update, dash.no_update, undo_history
                 else:
                     shape_to_move = shapes.pop(target_idx)
                     shape_to_move["customdata"] = label
@@ -2412,11 +2523,13 @@ def update_shapes_combined(
                     shapes[target_idx]["line"]["color"] = "white"
 
         summary = generate_summary(shapes, language, axial_length)
-        return shapes, summary, new_upload, dash.no_update, dash.no_update
+        # Retourne 6 valeurs
+        return shapes, summary, new_upload, dash.no_update, dash.no_update, undo_history
 
     if trigger == "apply-custom-label-btn":
         if not custom_label_text:
-            return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
+            # Retourne 6 valeurs
+            return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, undo_history
 
         label = custom_label_text
         target_idx = (
@@ -2429,7 +2542,8 @@ def update_shapes_combined(
             shapes[target_idx]["line"]["color"] = "cyan"
 
         summary = generate_summary(shapes, language, axial_length)
-        return shapes, summary, new_upload, dash.no_update, dash.no_update
+        # Retourne 6 valeurs
+        return shapes, summary, new_upload, dash.no_update, dash.no_update, undo_history
 
     if trigger_id_obj == "fig-image.relayoutData":
         if relayout_data and "shapes" in relayout_data:
@@ -2467,7 +2581,9 @@ def update_shapes_combined(
         s["customid"] = i + 1
 
     summary = generate_summary(shapes, language, axial_length)
-    return shapes, summary, new_upload, dash.no_update, dash.no_update
+
+    # Retour final avec 6 valeurs
+    return shapes, summary, new_upload, dash.no_update, dash.no_update, undo_history
 
 
 def generate_summary(shapes, language, axial_length=None):
@@ -6015,6 +6131,16 @@ def export_all_zip(n_clicks, stored_shapes, file_val, uploaded_image, language, 
         if mask_bytes:
             zf.writestr(f"{base_name}_mask.png", mask_bytes)
     return dcc.send_bytes(zip_buffer.getvalue(), f"{base_name}_complet.zip")
+
+@app.callback(
+    Output("visibility-store", "data"),
+    Input("toggle-visibility-btn", "n_clicks"),
+    State("visibility-store", "data"),
+    prevent_initial_call=True,
+)
+def toggle_visibility_store(n, current_visibility):
+    return not current_visibility
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080, debug=False)
