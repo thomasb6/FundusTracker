@@ -1,30 +1,27 @@
 document.addEventListener('keydown', function(event) {
 
-    // 1. SÉCURITÉ : Ne rien faire si on est en train d'écrire du texte
+    // 1. SÉCURITÉ : Ne rien faire si on écrit dans un champ texte
+    // C'est CRUCIAL maintenant que 'z' est un raccourci sans Ctrl
     const activeElem = document.activeElement;
     if (activeElem && (activeElem.tagName === 'INPUT' || activeElem.tagName === 'TEXTAREA')) {
         return;
     }
 
-    // 2. GESTION DE LA SUPPRESSION (Backspace / Delete)
-    // On détecte la touche et on clique virtuellement sur le bouton "Erase active shape"
-    if (event.key === 'Backspace' || event.key === 'Delete') {
+    // Récupération de la touche
+    let key = event.key.toLowerCase();
 
-        // On cherche le bouton gomme dans la page via son attribut data-title
-        // (C'est comme ça que Plotly nomme ses boutons en interne)
+    // 2. SUPPRESSION (Backspace / Delete)
+    if (key === 'backspace' || key === 'delete') {
         const eraseButton = document.querySelector('[data-title="Erase active shape"]');
-
         if (eraseButton) {
-            eraseButton.click(); // CLIC VIRTUEL
-            event.preventDefault(); // Empêche le navigateur de revenir à la page précédente
+            eraseButton.click();
+            event.preventDefault();
             console.log("Suppression déclenchée via clavier");
-        } else {
-            console.log("Bouton gomme introuvable (vérifiez config_graph)");
         }
-        return; // On s'arrête là pour cette touche
+        return;
     }
 
-    // 3. GESTION DES CLASSIFICATIONS (Vos raccourcis g, a, p, n)
+    // 3. CLASSIFICATIONS (Raccourcis lettres simples)
     let shortcuts = {
         'g': 'grande',
         'a': 'atrophie',
@@ -33,18 +30,39 @@ document.addEventListener('keydown', function(event) {
         'n': 'nerf optique'
     };
 
-    let key = event.key.toLowerCase();
-    if (key in shortcuts) {
+    // On s'assure qu'on ne fait pas Ctrl+A ou Cmd+A par erreur
+    if (!event.ctrlKey && !event.metaKey && key in shortcuts) {
         let desiredText = shortcuts[key];
-        let buttons = document.getElementsByClassName('classification-button');
+        let buttons = document.getElementsByTagName('button');
 
         for (let button of buttons) {
-            // On cherche le bouton qui contient le texte
-            if (button.innerText.trim().toLowerCase().includes(desiredText)) {
+            if (button.innerText && button.innerText.trim().toLowerCase().includes(desiredText)) {
                 event.preventDefault();
                 button.click();
                 break;
             }
         }
     }
+
+    // 4. VISIBILITÉ (Touche 'h')
+    if (key === 'h') {
+        event.preventDefault();
+        const btn = document.getElementById('toggle-visibility-btn');
+        if (btn) {
+            btn.click();
+            console.log("Raccourci H activé");
+        }
+    }
+
+    // 5. UNDO (Touche 'z' seule)
+    // On vérifie que Ctrl et Cmd ne sont PAS pressés pour éviter les conflits
+    if (key === 'z' && !event.ctrlKey && !event.metaKey) {
+        event.preventDefault();
+        const undoBtn = document.getElementById('undo-button');
+        if (undoBtn) {
+            undoBtn.click();
+            console.log("Touche Z -> Annulation déclenchée");
+        }
+    }
+
 });
