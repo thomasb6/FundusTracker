@@ -48,6 +48,19 @@ import numpy as np
 import pandas as pd
 
 
+def generate_ellipse_path(cx, cy, rx, ry, n_points=32):
+    """Génère une chaîne de caractères 'path' SVG pour une ellipse décomposée en points."""
+    import numpy as np
+    t = np.linspace(0, 2 * np.pi, n_points, endpoint=False)
+    x = cx + rx * np.cos(t)
+    y = cy + ry * np.sin(t)
+
+    path = f"M {x[0]},{y[0]}"
+    for i in range(1, len(x)):
+        path += f" L {x[i]},{y[i]}"
+    path += " Z"
+    return path
+
 def process_image_analysis_data(stored_shapes, file_val, uploaded_image, language, axial_length):
     _ = get_translator(language)
 
@@ -545,14 +558,12 @@ def calculate_area(coords):
 
 
 def circle_to_coords(shape, n_points=32):
-
     from math import cos, sin, pi
-
     x0, y0, x1, y1 = shape["x0"], shape["y0"], shape["x1"], shape["y1"]
     cx = (x0 + x1) / 2
     cy = (y0 + y1) / 2
     rx = abs(x1 - x0) / 2
-    ry = abs(y1 - y0) / 2
+    ry = abs(y1 - y0) / 2 # Ici, rx et ry sont gérés indépendamment
     return [
         (cx + rx * cos(2 * pi * i / n_points), cy + ry * sin(2 * pi * i / n_points))
         for i in range(n_points)
@@ -585,13 +596,11 @@ def generate_figure(image, file_val=None, shapes=None, size="normal"):
 
 
 def shape_for_plotly(shape):
-
     return {
         k: v
         for k, v in shape.items()
         if k not in ["customdata", "customid", "unique_lesion_id"]
     }
-
 
 def base64_to_cv2(base64_string):
 
@@ -2479,10 +2488,10 @@ def update_shapes_combined(
             "type": "circle",
             "xref": "x",
             "yref": "y",
-            "x0": cx - 50,
-            "y0": cy - 50,
-            "x1": cx + 50,
-            "y1": cy + 50,
+            "x0": cx - 45,
+            "y0": cy - 55,
+            "x1": cx + 45,
+            "y1": cy + 55,
             "line": {"color": "white", "width": 2, "dash": "dot"},
             "customdata": optic_nerve_label,
             "editable": True,
@@ -2548,27 +2557,41 @@ def update_shapes_combined(
     if trigger_id_obj == "fig-image.relayoutData":
         if relayout_data and "shapes" in relayout_data:
             new_plotly_shapes = relayout_data["shapes"]
+
+            # CAS 1 : AJOUT d'une forme
             if len(new_plotly_shapes) > len(shapes):
                 new_shape_plotly = new_plotly_shapes[-1]
-                new_shape = {
-                    k: v
-                    for k, v in new_shape_plotly.items()
-                    if k not in ["customdata", "customid"]
-                }
+                new_shape = {k: v for k, v in new_shape_plotly.items() if k not in ["customdata", "customid"]}
                 new_shape["customdata"] = _("Tache")
                 shapes.append(new_shape)
-            else:
-                shapes = []
-                for i, sh_plotly in enumerate(new_plotly_shapes):
-                    sh = stored_shapes[i].copy()
-                    sh.update(
-                        {
-                            k: v
-                            for k, v in sh_plotly.items()
-                            if k not in ["customdata", "customid"]
-                        }
-                    )
-                    shapes.append(sh)
+
+            # CAS 2 : SUPPRESSION d'une forme
+            elif len(new_plotly_shapes) < len(shapes):
+                idx_to_remove = None
+                for i in range(len(shapes)):
+                    # On compare la géométrie (le chemin SVG ou le x0 du cercle)
+                    # Si l'élément à l'index i ne correspond plus, c'est que c'est lui qui a été supprimé
+                    s_old = shapes[i]
+                    if i >= len(new_plotly_shapes):
+                        idx_to_remove = i
+                        break
+
+                    s_new = new_plotly_shapes[i]
+                    # Comparaison sur le path (polygone) ou x0 (cercle)
+                    if s_old.get("path") != s_new.get("path") or s_old.get("x0") != s_new.get("x0"):
+                        idx_to_remove = i
+                        break
+
+                if idx_to_remove is not None:
+                    shapes.pop(idx_to_remove)
+
+            # CAS 3 : DÉPLACEMENT ou MISE À JOUR DES COORDONNÉES
+            # On synchronise les géométries pour que notre liste locale soit identique au dessin
+            for i, sh_plotly in enumerate(new_plotly_shapes):
+                if i < len(shapes):
+                    shapes[i].update({k: v for k, v in sh_plotly.items() if k not in ["customdata", "customid"]})
+
+        # CAS 4 : Modification d'un point précis d'un tracé
         elif relayout_data:
             for key, val in relayout_data.items():
                 m = re.match(r"shapes\[(\d+)\]\.(\w+)", key)
