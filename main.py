@@ -2460,35 +2460,40 @@ def update_shapes_combined(
         if relayout_data and "shapes" in relayout_data:
             new_plotly_shapes = relayout_data["shapes"]
 
-            # CAS 1 : AJOUT d'une forme
+            # --- CAS 1 : AJOUT D'UNE FORME ---
             if len(new_plotly_shapes) > len(shapes):
                 new_shape_plotly = new_plotly_shapes[-1]
                 new_shape = {k: v for k, v in new_shape_plotly.items() if k not in ["customdata", "customid"]}
                 new_shape["customdata"] = _("Tache")
                 shapes.append(new_shape)
 
-                # CAS 2 : SUPPRESSION d'une forme
+            # --- CAS 2 : SUPPRESSION D'UNE FORME (Correction du bug de décalage) ---
             elif len(new_plotly_shapes) < len(shapes):
-                # On cherche l'index qui a été supprimé
-                idx_to_remove = None
-                for i in range(len(new_plotly_shapes)):
-                    # Si les IDs ne correspondent plus à cet index, c'est que l'ancien shapes[i] est parti
-                    if shapes[i].get("customid") != new_plotly_shapes[i].get("customid"):
-                        idx_to_remove = i
+                # On cherche quelle forme de notre liste Python n'existe plus dans le graphique
+                idx_to_pop = None
+                for i, s_old in enumerate(shapes):
+                    still_exists = False
+                    for s_new in new_plotly_shapes:
+                        # On compare le tracé SVG (path) ou la coordonnée X du cercle
+                        if s_old.get("path") == s_new.get("path") and s_old.get("x0") == s_new.get("x0"):
+                            still_exists = True
+                            break
+                    if not still_exists:
+                        idx_to_pop = i
                         break
 
-                # Si on n'a rien trouvé, c'est que c'est le dernier élément qui a été supprimé
-                if idx_to_remove is None:
-                    idx_to_remove = len(shapes) - 1
+                if idx_to_pop is not None:
+                    shapes.pop(idx_to_pop)
 
-                shapes.pop(idx_to_remove)
+            # --- CAS 3 : DÉPLACEMENT / MODIFICATION ---
+            # Une fois la suppression gérée, on synchronise les coordonnées des formes restantes
+            if len(new_plotly_shapes) == len(shapes):
+                for i in range(len(shapes)):
+                    # On ne met à jour que la géométrie, on ne touche JAMAIS au customdata ici
+                    new_geo = {k: v for k, v in new_plotly_shapes[i].items() if k not in ["customdata", "customid"]}
+                    shapes[i].update(new_geo)
 
-            # CAS 3 : DÉPLACEMENT / MISE À JOUR
-            for i, sh_plotly in enumerate(new_plotly_shapes):
-                if i < len(shapes):
-                    shapes[i].update({k: v for k, v in sh_plotly.items() if k not in ["customdata", "customid"]})
-
-        # CAS 4 : Modification d'un point précis d'un tracé
+        # CAS 4 : Modification d'un point précis (drag & drop d'un sommet)
         elif relayout_data:
             for key, val in relayout_data.items():
                 m = re.match(r"shapes\[(\d+)\]\.(\w+)", key)
