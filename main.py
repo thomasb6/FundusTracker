@@ -482,47 +482,6 @@ def mask_to_shapes(mask, label_value=1, min_area=200, contour_tolerance=3.0):
         idx += 1
     return shapes
 
-
-def transform_coords(coords, zoom, rotation_deg, center):
-    from math import cos, sin, radians
-
-    rot = radians(rotation_deg)
-    cx, cy = center
-    out = []
-    for x, y in coords:
-        tx, ty = x - cx, y - cy
-        tx, ty = tx * zoom, ty * zoom
-        rx = tx * cos(rot) - ty * sin(rot)
-        ry = tx * sin(rot) + ty * cos(rot)
-        out.append((rx + cx, ry + cy))
-    return out
-
-
-def transform_shape(shape, zoom, rotation_deg, center):
-    s = shape.copy()
-    if s.get("type") == "circle":
-        coords = circle_to_coords(s)
-        coords_t = transform_coords(coords, zoom, rotation_deg, center)
-        xs = [pt[0] for pt in coords_t]
-        ys = [pt[1] for pt in coords_t]
-        s["x0"], s["x1"] = min(xs), max(xs)
-        s["y0"], s["y1"] = min(ys), max(ys)
-    elif "path" in s:
-        import re
-
-        path_str = s["path"]
-        matches = re.findall(r"[-+]?\d*\.\d+|\d+", path_str)
-        coords = [
-            (float(matches[j]), float(matches[j + 1]))
-            for j in range(0, len(matches), 2)
-        ]
-        coords_t = transform_coords(coords, zoom, rotation_deg, center)
-        if coords_t:
-            path = "M " + " L ".join(f"{x},{y}" for x, y in coords_t) + " Z"
-            s["path"] = path
-    return s
-
-
 def get_filenames(path=FOLDER_PATH):
 
     headers = {
@@ -1367,30 +1326,6 @@ def serve_layout(language):
                                     className="mb-2",
                                     style={"width": "100%"},
                                 ),
-                                html.Label(_("Zoom global :")),
-                                dcc.Slider(
-                                    id="zoom-slider",
-                                    min=0.80,
-                                    max=1.2,
-                                    step=0.01,
-                                    value=1.0,
-                                    tooltip={
-                                        "placement": "bottom",
-                                        "always_visible": False,
-                                    },
-                                ),
-                                html.Label(_("Rotation globale (°) :")),
-                                dcc.Slider(
-                                    id="rotation-slider",
-                                    min=-30,
-                                    max=30,
-                                    step=0.5,
-                                    value=0,
-                                    tooltip={
-                                        "placement": "bottom",
-                                        "always_visible": False,
-                                    },
-                                ),
                                 html.Hr(),
                                 html.Label(_("Données Biométriques :")),
                                 html.Div(
@@ -2173,7 +2108,6 @@ def update_language(fr_clicks, en_clicks):
         return "en"
     return dash.no_update
 
-
 @app.callback(
     Output("fig-image", "figure"),
     Input("file-dropdown", "value"),
@@ -2183,8 +2117,6 @@ def update_language(fr_clicks, en_clicks):
     Input("stored-shapes", "data"),
     Input("show-zone-numbers", "value"),
     Input("dashed-contour", "value"),
-    Input("zoom-slider", "value"),
-    Input("rotation-slider", "value"),
     Input("visibility-store", "data"),
     State("fig-image", "figure"),
     State("language-store", "data"),
@@ -2192,15 +2124,13 @@ def update_language(fr_clicks, en_clicks):
 def update_figure(
         file_val, uploaded_image, annotation_image_id, reset_clicks,
         stored_shapes, show_zone_numbers, dashed_contour,
-        zoom, rotation, visibility_state, current_fig, language
+        visibility_state, current_fig, language
 ):
     _ = get_translator(language)
     triggered_id = ctx.triggered_id
 
-    # Liste des triggers qui nécessitent un rechargement complet (changement d'image)
+    # 1. Chargement initial de l'image
     image_triggers = ["file-dropdown", "uploaded-image-store", "annotation-image-store", "reset-button"]
-
-    # 1. Si on change d'image : on renvoie TOUTE la figure (lent mais nécessaire une seule fois)
     if triggered_id in image_triggers or current_fig is None or "layout" not in current_fig:
         image_id = annotation_image_id or file_val or uploaded_image
         if image_id:
@@ -2213,59 +2143,36 @@ def update_figure(
                 return scatter_fig
         return scatter_fig
 
-    # 2. Si on modifie juste les formes/zoom/visibilité : On utilise PATCH (Très rapide)
+    # 2. Mise à jour des annotations (Patch pour la performance)
     patched_fig = Patch()
-
-    try:
-        # On récupère les dimensions actuelles pour le centre de rotation
-        # (On lit dans current_fig pour ne pas avoir à recharger l'image)
-        width = current_fig["layout"]["xaxis"]["range"][1]
-        height = current_fig["layout"]["yaxis"]["range"][0]
-    except:
-        width, height = 700, 700
-
-    cx, cy = width / 2, abs(height) / 2
-
     new_plotly_shapes = []
     new_annotations = []
-
-    # Gestion de la visibilité
-    # Par défaut True si None
     is_visible = True if visibility_state is None else visibility_state
 
     if stored_shapes:
         for i, shape in enumerate(stored_shapes):
-            # Transformation géométrique (Zoom/Rotation)
-            shape_t = transform_shape(shape, zoom, rotation, (cx, cy))
+            s_to_draw = shape.copy()
+            s_to_draw["opacity"] = 1 if is_visible else 0
+            s_to_draw["editable"] = True if is_visible else False
+            s_to_draw["visible"] = True
+            s_to_draw["layer"] = "above"
+            s_to_draw["line"]["width"] = 3
+            s_to_draw["line"]["dash"] = "dot" if dashed_contour else "solid"
 
-            # --- ASTUCE PERFORMANCE & BUG FIX ---
-            # Au lieu de retirer la forme (ce qui bug avec Patch), on la rend transparente.
-            shape_t["opacity"] = 1 if is_visible else 0
-
-            # On désactive l'édition si invisible pour ne pas déplacer une forme qu'on ne voit pas
-            shape_t["editable"] = True if is_visible else False
-
-            # On force la visibilité à True car on gère via l'opacité
-            shape_t["visible"] = True
-
-            shape_t["layer"] = "above"
-            shape_t["line"]["width"] = 3
-            shape_t["line"]["dash"] = "dot" if dashed_contour else "solid"
-
-            # Couleurs
-            if shape_t.get("customdata") == _("nerf optique"):
-                shape_t["fillcolor"] = "rgba(255, 255, 0, 0.2)"
-                shape_t["line"]["color"] = "yellow"
-            elif shape_t.get("customdata") == _("Exclusion"):
-                shape_t["fillcolor"] = "rgba(0, 0, 0, 0.4)"
-                shape_t["line"]["color"] = "gray"
+            # Gestion des couleurs par label
+            if s_to_draw.get("customdata") == _("nerf optique"):
+                s_to_draw["fillcolor"] = "rgba(255, 255, 0, 0.2)"
+                s_to_draw["line"]["color"] = "yellow"
+            elif s_to_draw.get("customdata") == _("Exclusion"):
+                s_to_draw["fillcolor"] = "rgba(0, 0, 0, 0.4)"
+                s_to_draw["line"]["color"] = "gray"
             else:
-                shape_t["fillcolor"] = "rgba(255, 255, 255, 0.2)"
-                shape_t["line"]["color"] = shape.get("line", {}).get("color", "white")
+                s_to_draw["fillcolor"] = "rgba(255, 255, 255, 0.2)"
+                s_to_draw["line"]["color"] = s_to_draw.get("line", {}).get("color", "white")
 
-            new_plotly_shapes.append(shape_for_plotly(shape_t))
+            new_plotly_shapes.append(shape_for_plotly(s_to_draw))
 
-            # Numéros de zone
+            # Numérotation des zones au centre
             if show_zone_numbers and is_visible:
                 coords = []
                 if shape.get("type") == "circle":
@@ -2274,22 +2181,17 @@ def update_figure(
                     matches = re.findall(r"[-+]?\d*\.\d+|\d+", shape.get("path", ""))
                     coords = [(float(matches[j]), float(matches[j + 1])) for j in range(0, len(matches), 2)]
 
-                coords_t = transform_coords(coords, zoom, rotation, (cx, cy))
-                if coords_t:
-                    ann_x = sum(p[0] for p in coords_t) / len(coords_t)
-                    ann_y = sum(p[1] for p in coords_t) / len(coords_t)
+                if coords:
+                    ann_x = sum(p[0] for p in coords) / len(coords)
+                    ann_y = sum(p[1] for p in coords) / len(coords)
                     new_annotations.append(dict(
                         x=ann_x, y=ann_y, text=str(i + 1),
                         showarrow=True, arrowhead=2, ax=0, ay=-20,
                         font=dict(color="white", size=12)
                     ))
 
-    # Mise à jour via Patch (Rapide car on n'envoie pas l'image de fond)
     patched_fig["layout"]["shapes"] = new_plotly_shapes
     patched_fig["layout"]["annotations"] = new_annotations
-
-    # --- FIX DU CARRÉ FANTÔME ---
-    # Si on masque, on vide explicitement la liste des sélections actives dans Plotly
     if not is_visible:
         patched_fig["layout"]["selections"] = []
 
@@ -2565,28 +2467,23 @@ def update_shapes_combined(
                 new_shape["customdata"] = _("Tache")
                 shapes.append(new_shape)
 
-            # CAS 2 : SUPPRESSION d'une forme
+                # CAS 2 : SUPPRESSION d'une forme
             elif len(new_plotly_shapes) < len(shapes):
+                # On cherche l'index qui a été supprimé
                 idx_to_remove = None
-                for i in range(len(shapes)):
-                    # On compare la géométrie (le chemin SVG ou le x0 du cercle)
-                    # Si l'élément à l'index i ne correspond plus, c'est que c'est lui qui a été supprimé
-                    s_old = shapes[i]
-                    if i >= len(new_plotly_shapes):
+                for i in range(len(new_plotly_shapes)):
+                    # Si les IDs ne correspondent plus à cet index, c'est que l'ancien shapes[i] est parti
+                    if shapes[i].get("customid") != new_plotly_shapes[i].get("customid"):
                         idx_to_remove = i
                         break
 
-                    s_new = new_plotly_shapes[i]
-                    # Comparaison sur le path (polygone) ou x0 (cercle)
-                    if s_old.get("path") != s_new.get("path") or s_old.get("x0") != s_new.get("x0"):
-                        idx_to_remove = i
-                        break
+                # Si on n'a rien trouvé, c'est que c'est le dernier élément qui a été supprimé
+                if idx_to_remove is None:
+                    idx_to_remove = len(shapes) - 1
 
-                if idx_to_remove is not None:
-                    shapes.pop(idx_to_remove)
+                shapes.pop(idx_to_remove)
 
-            # CAS 3 : DÉPLACEMENT ou MISE À JOUR DES COORDONNÉES
-            # On synchronise les géométries pour que notre liste locale soit identique au dessin
+            # CAS 3 : DÉPLACEMENT / MISE À JOUR
             for i, sh_plotly in enumerate(new_plotly_shapes):
                 if i < len(shapes):
                     shapes[i].update({k: v for k, v in sh_plotly.items() if k not in ["customdata", "customid"]})
