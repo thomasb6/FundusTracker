@@ -2927,8 +2927,7 @@ def download_annotations(n_clicks, stored_shapes, file_val, local_filename, M_li
         with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
             zf.writestr(f"{base_name}_sift.json",     json.dumps(stored_shapes,  indent=2))
             zf.writestr(f"{base_name}_original.json", json.dumps(shapes_original, indent=2))
-        buf.seek(0)
-        return dcc.send_bytes(buf.read, f"{base_name}_annotations.zip")
+        return dcc.send_bytes(buf.getvalue(), f"{base_name}_annotations.zip")
     else:
         return dcc.send_string(json.dumps(stored_shapes, indent=2), f"{base_name}.json")
 
