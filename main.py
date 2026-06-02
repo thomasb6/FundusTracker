@@ -1085,7 +1085,7 @@ def layout_my_dossiers():
                     width=2, className="d-flex justify-content-end",
                 ),
             ], className="mb-3 g-2"),
-            dcc.Store(id="imagebank-view-mode", data="grid"),
+            dcc.Store(id="imagebank-view-mode", data="list"),
 
             # ── Cards grid (populated by callback) ───────────────────────────
             dcc.Loading(
@@ -1284,18 +1284,16 @@ def _dossier_grid_with_stats(dossiers, view_mode="grid"):
 
 
 def layout_admin():
+    from auth import _load_index as _auth_load_index
     users = get_all_users()
+    global_patients = load_global_patient_data()
+    n_global_patients = len(global_patients)
     rows = []
     for u in users:
-        data_path = os.path.join("userdata", str(u["id"]), "patients.json")
-        patient_count = 0
-        if os.path.exists(data_path):
-            try:
-                with open(data_path) as f:
-                    d = json.load(f)
-                patient_count = len(d) if isinstance(d, dict) else 0
-            except Exception:
-                pass
+        try:
+            dossier_count = len(_auth_load_index(u["id"]))
+        except Exception:
+            dossier_count = 0
         rows.append(
             dbc.ListGroupItem(
                 [
@@ -1303,7 +1301,7 @@ def layout_admin():
                         [
                             dbc.Badge("Admin", color="danger", className="me-2") if u["is_admin"] else None,
                             html.Strong(u["username"]),
-                            html.Span(f" — {patient_count} patient(s)", className="text-muted ms-2", style={"fontSize": "0.85rem"}),
+                            html.Span(f" — {dossier_count} image(s) in bank", className="text-muted ms-2", style={"fontSize": "0.85rem"}),
                             html.Span(f"  (created {u['created_at'][:10]})", className="text-muted ms-1", style={"fontSize": "0.8rem"}),
                         ]
                     ),
@@ -1320,7 +1318,13 @@ def layout_admin():
 
     return html.Div([
         dbc.Container([
-            html.H4("User Management", className="mt-3 mb-3"),
+            html.Div([
+                html.H4("User Management", className="mb-0"),
+                html.Small(
+                    f"{n_global_patients} patient(s) in shared database",
+                    className="text-muted",
+                ),
+            ], className="d-flex justify-content-between align-items-center mt-3 mb-3"),
             dbc.ListGroup(rows, className="mb-4"),
             html.Hr(),
             html.H5("Create new user"),
@@ -3950,8 +3954,11 @@ def update_shapes_combined(
             if isinstance(parsed, list):
                 new_annotations = parsed  # legacy format
             elif isinstance(parsed, dict):
-                # SIFT format: prefer sift-space coords for re-use on the same aligned image
-                new_annotations = parsed.get("shapes_sift") or parsed.get("shapes") or []
+                # Image Bank export uses "annotations"; SIFT export uses "shapes_sift"/"shapes"
+                new_annotations = (parsed.get("shapes_sift")
+                                   or parsed.get("shapes")
+                                   or parsed.get("annotations")
+                                   or [])
             else:
                 new_annotations = []
             optic_nerve_idx, _shape = find_optic_nerve(new_annotations, language)
