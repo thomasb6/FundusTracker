@@ -908,7 +908,7 @@ filenames = get_filenames()
 
 app.layout = html.Div([
     dcc.Location(id="url", refresh=False),
-    dcc.Store(id="language-store", data="en"),
+    dcc.Store(id="language-store", data="en", storage_type="local"),
     dcc.Store(id="current-user-store", data=None),
     html.Div(id="page-content"),
 ])
@@ -952,11 +952,16 @@ def layout_my_dossiers():
             # ── Header ────────────────────────────────────────────────────────
             html.Div([
                 html.H4("My Dossiers", className="mb-0"),
-                dbc.Button(
-                    [html.I(className="fas fa-plus me-2"), "New dossier"],
-                    id="new-dossier-btn", color="primary", size="sm",
-                ),
             ], className="d-flex justify-content-between align-items-center my-3"),
+            dbc.Alert(
+                [html.I(className="fas fa-lightbulb me-2"),
+                 "To create a dossier: open an image in ",
+                 html.Strong("Manual Segmentation"),
+                 ", annotate it, then click ",
+                 html.Strong("Save as dossier"),
+                 "."],
+                color="light", className="py-2 mb-3", style={"fontSize": "0.85rem"},
+            ),
 
             # ── Filters ───────────────────────────────────────────────────────
             dbc.Row([
@@ -2523,10 +2528,25 @@ def serve_layout(language):
         centered=True,
     )
 
+    delete_confirm_modal = dbc.Modal([
+        dbc.ModalHeader(dbc.ModalTitle("Delete dossier?")),
+        dbc.ModalBody([
+            html.P("Are you sure you want to delete:"),
+            html.Strong(id="delete-confirm-name"),
+            html.P("This action cannot be undone.", className="text-danger mt-2 mb-0",
+                   style={"fontSize": "0.85rem"}),
+        ]),
+        dbc.ModalFooter([
+            dbc.Button("Cancel", id="delete-confirm-cancel", color="secondary", outline=True),
+            dbc.Button("Delete", id="delete-confirm-ok", color="danger"),
+        ]),
+    ], id="delete-confirm-modal", is_open=False, centered=True)
+
     return html.Div(
         [
             login_modal,
             save_dossier_modal,
+            delete_confirm_modal,
             change_password_modal,
             html.Div(
                 [
@@ -2641,6 +2661,7 @@ def serve_layout(language):
             dcc.Store(id="active-dossier-store", data=None),
             dcc.Store(id="dossiers-refresh-trigger", data=0),
             dcc.Store(id="ds-editing-id", data=None),
+            dcc.Store(id="delete-confirm-id", data=None),
         ]
     )
 
@@ -2906,16 +2927,18 @@ def update_dossier_save_section(user_data, active):
     Output("ds-notes", "value"),
     Output("ds-editing-id", "data"),
     Input("save-as-dossier-btn", "n_clicks"),
-    Input("new-dossier-btn", "n_clicks"),
     Input({"type": "edit-dossier-btn", "index": ALL}, "n_clicks"),
     Input("ds-cancel", "n_clicks"),
     State("local-filename-store", "data"),
     State("file-dropdown", "value"),
     prevent_initial_call=True,
 )
-def open_dossier_modal(save_n, new_n, edit_clicks, cancel_n, local_fn, file_val):
+def open_dossier_modal(save_n, edit_clicks, cancel_n, local_fn, file_val):
+    # Guard: ignore spurious triggers with n_clicks=0
+    if not ctx.triggered or not ctx.triggered[0].get("value"):
+        return (dash.no_update,) * 7
     triggered = ctx.triggered_id
-    if triggered in ("ds-cancel",):
+    if triggered == "ds-cancel":
         return False, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
 
     today = datetime.now().strftime("%Y-%m-%d")
@@ -3087,41 +3110,68 @@ def open_dossier_cb(n_clicks_list):
     )
 
 
-# ── Delete dossier ─────────────────────────────────────────────────────────────
+# ── Delete dossier: open confirm modal ────────────────────────────────────────
+@app.callback(
+    Output("delete-confirm-modal", "is_open"),
+    Output("delete-confirm-id", "data"),
+    Output("delete-confirm-name", "children"),
+    Input({"type": "delete-dossier-btn", "index": ALL}, "n_clicks"),
+    Input("delete-confirm-cancel", "n_clicks"),
+    prevent_initial_call=True,
+)
+def open_delete_confirm(n_clicks_list, cancel_n):
+    if not ctx.triggered or not ctx.triggered[0].get("value"):
+        return dash.no_update, dash.no_update, dash.no_update
+    triggered = ctx.triggered_id
+    if triggered == "delete-confirm-cancel":
+        return False, None, ""
+    if not isinstance(triggered, dict) or not any(n_clicks_list):
+        return dash.no_update, dash.no_update, dash.no_update
+    dossier_id = triggered["index"]
+    if current_user.is_authenticated:
+        d = get_dossier(current_user.id, dossier_id)
+        name = d["name"] if d else dossier_id
+    else:
+        name = dossier_id
+    return True, dossier_id, name
+
+
+# ── Delete dossier: confirm ────────────────────────────────────────────────────
 @app.callback(
     Output("dossiers-refresh-trigger", "data", allow_duplicate=True),
     Output("active-dossier-store", "data", allow_duplicate=True),
-    Input({"type": "delete-dossier-btn", "index": ALL}, "n_clicks"),
+    Output("delete-confirm-modal", "is_open", allow_duplicate=True),
+    Input("delete-confirm-ok", "n_clicks"),
+    State("delete-confirm-id", "data"),
     State("active-dossier-store", "data"),
     State("dossiers-refresh-trigger", "data"),
     prevent_initial_call=True,
 )
-def delete_dossier_cb(n_clicks_list, active, trigger_val):
-    if not current_user.is_authenticated or not any(n_clicks_list):
-        return dash.no_update, dash.no_update
-    triggered = ctx.triggered_id
-    if not triggered:
-        return dash.no_update, dash.no_update
-    dossier_id = triggered["index"]
+def confirm_delete_dossier(n, dossier_id, active, trigger_val):
+    if not n or not dossier_id or not current_user.is_authenticated:
+        return dash.no_update, dash.no_update, dash.no_update
     delete_dossier(current_user.id, dossier_id)
     new_active = None if (active and active.get("id") == dossier_id) else active
-    return (trigger_val or 0) + 1, new_active
+    return (trigger_val or 0) + 1, new_active, False
 
 
 # ── New dossier button → go to annotation tab with clean state ─────────────────
+
+
+# ── Clear active dossier when user manually loads a new image ─────────────────
 @app.callback(
-    Output("tabs", "value", allow_duplicate=True),
-    Output("stored-shapes", "data", allow_duplicate=True),
-    Output("uploaded-image-store", "data", allow_duplicate=True),
-    Output("file-dropdown", "value", allow_duplicate=True),
     Output("active-dossier-store", "data", allow_duplicate=True),
-    Input("new-dossier-btn", "n_clicks"),
+    Input("upload-image", "contents"),
+    Input("file-dropdown", "value"),
     prevent_initial_call=True,
 )
-def new_dossier_btn(n):
-    if not n:
-        return (dash.no_update,) * 5
-    return "tab-manuelle", [], None, None, None
+def clear_active_on_new_image(contents, file_val):
+    triggered = ctx.triggered_id
+    if triggered == "upload-image" and contents:
+        return None
+    if triggered == "file-dropdown" and file_val:  # real selection, not a programmatic clear
+        return None
+    return dash.no_update
 
 
 # ── Trigger grid refresh when tab opens for first time ───────────────────────
@@ -3144,7 +3194,10 @@ def trigger_refresh_on_tab_open(active_tab, current_val):
     prevent_initial_call=True,
 )
 def update_language(fr_clicks, en_clicks):
-
+    # Guard: n_clicks=0 means the buttons were just re-rendered (layout refresh),
+    # not actually clicked. Ignore these spurious triggers.
+    if not ctx.triggered or not ctx.triggered[0].get("value"):
+        return dash.no_update
     triggered_id = ctx.triggered_id
     if triggered_id == "lang-fr":
         return "fr"
