@@ -1846,11 +1846,10 @@ def serve_layout(language):
         _ = get_translator(language)
         return html.Div(
             [
-                html.Div(id="patient-auth-banner", className="px-3 pt-2"),
                 html.Div(
                     [
                         html.H4(_("Gestion du Patient")),
-                        html.Br(),
+                        html.Div(id="patient-account-status", className="mb-3"),
                         dbc.Label(_("Saisir un nouveau patient :")),
                         dcc.Input(
                             id="patient-nom-input",
@@ -2286,14 +2285,13 @@ def serve_layout(language):
     if user:
         auth_widget = html.Div(
             [
-                html.Div(id="sync-status-display", className="me-2"),
                 html.Span(
                     [html.I(className="fas fa-user-circle me-1"), user.username],
-                    className="me-1 text-muted fw-semibold",
+                    className="text-muted fw-semibold",
                     style={"fontSize": "0.85rem"},
                 ),
                 dbc.Button(
-                    [html.I(className="fas fa-key me-1"), ""],
+                    html.I(className="fas fa-key"),
                     id="open-change-password-btn", color="light", size="sm",
                     outline=True, title="Change password",
                 ),
@@ -2303,20 +2301,18 @@ def serve_layout(language):
                 ),
                 dbc.Button(id="open-login-modal-btn", style={"display": "none"}),
             ],
-            style={"display": "flex", "alignItems": "center", "gap": "5px"},
+            style={"display": "flex", "alignItems": "center", "gap": "6px"},
         )
     else:
         auth_widget = html.Div(
             [
-                html.Div(id="sync-status-display"),
                 dbc.Button(
                     [html.I(className="fas fa-sign-in-alt me-1"), "Login"],
                     id="open-login-modal-btn", color="primary", size="sm", outline=True,
                 ),
                 dbc.Button(id="logout-btn", style={"display": "none"}),
                 dbc.Button(id="open-change-password-btn", style={"display": "none"}),
-            ],
-            style={"display": "flex", "alignItems": "center", "gap": "5px"},
+            ]
         )
 
     change_password_modal = dbc.Modal(
@@ -2562,49 +2558,38 @@ def auto_save_patients(series_data):
     return dash.no_update, ts
 
 
-# ── Sync status display in header ─────────────────────────────────────────────
+# ── Patient tab account status (one discrete line) ────────────────────────────
 @app.callback(
-    Output("sync-status-display", "children"),
-    Input("last-saved-store", "data"),
-    Input("current-user-store", "data"),
-)
-def update_sync_display(last_saved, user_data):
-    if not current_user.is_authenticated:
-        return ""
-    if last_saved:
-        return html.Span(
-            [html.I(className="fas fa-cloud-upload-alt me-1"), f"Saved {last_saved}"],
-            className="text-success", style={"fontSize": "0.75rem"},
-        )
-    return html.Span(
-        [html.I(className="fas fa-cloud me-1"), "Cloud sync on"],
-        className="text-muted", style={"fontSize": "0.75rem"},
-    )
-
-
-# ── Patient tab auth banner ────────────────────────────────────────────────────
-@app.callback(
-    Output("patient-auth-banner", "children"),
+    Output("patient-account-status", "children"),
     Input("current-user-store", "data"),
     Input("last-saved-store", "data"),
 )
-def update_patient_auth_banner(user_data, last_saved):
+def update_patient_account_status(user_data, last_saved):
     if current_user.is_authenticated:
-        msg = f"Synced to account · {current_user.username}"
-        if last_saved:
-            msg += f" · Last save: {last_saved}"
-        return dbc.Alert(
-            [html.I(className="fas fa-cloud-upload-alt me-2"), msg],
-            color="success", className="py-1 mb-2", style={"fontSize": "0.82rem"},
+        saved_label = f" · {last_saved}" if last_saved else ""
+        return html.Div(
+            [
+                html.I(className="fas fa-cloud-upload-alt me-1 text-success"),
+                html.Span(
+                    f"Synced · {current_user.username}{saved_label}",
+                    className="text-success",
+                    style={"fontSize": "0.8rem"},
+                ),
+            ]
         )
-    return dbc.Alert(
+    return html.Div(
         [
-            html.I(className="fas fa-exclamation-circle me-2"),
-            "Not logged in — patient data will be lost on page refresh. ",
-            dbc.Button("Login", id="open-login-modal-btn", color="warning", size="sm",
-                       outline=True, className="py-0 ms-1"),
-        ],
-        color="warning", className="py-1 mb-2", style={"fontSize": "0.82rem"},
+            html.I(className="fas fa-lock me-1 text-muted"),
+            html.Span("Not saved — ", className="text-muted", style={"fontSize": "0.8rem"}),
+            dbc.Button(
+                "Login to save",
+                id="open-login-modal-btn",
+                color="link",
+                size="sm",
+                className="p-0",
+                style={"fontSize": "0.8rem", "verticalAlign": "baseline"},
+            ),
+        ]
     )
 
 
