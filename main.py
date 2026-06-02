@@ -1530,34 +1530,33 @@ def serve_layout(language):
     def layout_semiauto():
         return html.Div(
             [
+                # ── Left: instructions ──────────────────────────────────────
                 html.Div(
                     [
-                        html.H2(_("Instructions d'utilisation")),
-                        html.P(_("1. Choisissez une image.")),
-                        html.P(
-                            _(
-                                "2. Dessinez à main levée les zones d'intéret sur l’image pour donner des exemples."
-                            )
+                        html.H5("How to use", className="fw-bold mb-3"),
+                        html.Ol(
+                            [
+                                html.Li("Load an image from the list or upload a local file."),
+                                html.Li("Select a label below and draw strokes on the image."),
+                                html.Li("Draw at least one stroke for each category you need."),
+                                html.Li("Click Segment. Re-draw and re-run to refine."),
+                                html.Li("Click Accept to send zones to manual annotation."),
+                            ],
+                            style={"paddingLeft": "16px", "lineHeight": "2.1", "fontSize": "0.9rem"},
                         ),
-                        html.P(
-                            _(
-                                "3. Cliquez sur Segmenter pour lancer la segmentation automatique."
-                            )
+                        html.Hr(className="my-3"),
+                        html.P("Overlay colors:", className="mb-1 text-muted", style={"fontSize": "0.8rem"}),
+                        html.Div(
+                            [
+                                html.Span("⬤ Optic Disc", style={"color": "#FFD700", "marginRight": "10px", "fontSize": "0.8rem"}),
+                                html.Span("⬤ Lesion", style={"color": "#FF4444", "marginRight": "10px", "fontSize": "0.8rem"}),
+                                html.Span("⬤ Background", style={"color": "#00CC44", "fontSize": "0.8rem"}),
+                            ]
                         ),
-                        html.P(
-                            _(
-                                "4. Vous pouvez ajouter d’autres traits et relancer la segmentation pour affiner."
-                            )
-                        ),
-                        html.P(
-                            _(
-                                "5. Acceptez la segmentation pour travailler manuellement les zones."
-                            )
-                        ),
-                        html.Br(),
                     ],
                     className="left-block",
                 ),
+                # ── Middle: graph + result ───────────────────────────────────
                 html.Div(
                     [
                         dcc.Graph(
@@ -1576,9 +1575,11 @@ def serve_layout(language):
                     ],
                     className="middle-block",
                 ),
+                # ── Right: controls ─────────────────────────────────────────
                 html.Div(
                     [
-                        html.P(_("Choix de l'image :")),
+                        # — Image selection ——————————————————————————
+                        html.P(html.Strong("Image"), className="mb-1"),
                         dcc.Dropdown(
                             id="ml-file-dropdown",
                             options=[
@@ -1586,85 +1587,98 @@ def serve_layout(language):
                                 for f in filenames
                             ],
                             placeholder=_("Choisissez une image"),
+                            clearable=True,
+                            className="mb-2",
                         ),
-                        html.P(_("Ou chargez une image locale :")),
                         dcc.Upload(
                             id="ml-upload-image",
                             children=html.Div(
-                                [_("Glissez-déposez une image ou "), html.A(_("cliquez ici"))]
+                                [
+                                    html.I(className="fas fa-upload me-2 text-muted"),
+                                    html.Span(
+                                        "Upload local image",
+                                        style={"fontSize": "0.85rem", "color": "#666"},
+                                    ),
+                                ]
                             ),
                             style={
                                 "width": "100%",
-                                "height": "40px",
-                                "lineHeight": "40px",
+                                "height": "36px",
+                                "lineHeight": "36px",
                                 "borderWidth": "1px",
                                 "borderStyle": "dashed",
                                 "borderRadius": "5px",
                                 "textAlign": "center",
-                                "marginBottom": "8px",
                                 "cursor": "pointer",
+                                "backgroundColor": "#f8f9fa",
                             },
                             multiple=False,
                         ),
-                        html.P(_("Pinceau/étiquette :")),
-                        dcc.Dropdown(
+                        html.Div(id="ml-upload-filename", className="text-muted mt-1 mb-1", style={"fontSize": "0.75rem"}),
+                        html.Hr(className="my-2"),
+                        # — Label + brush ————————————————————————————
+                        html.P(html.Strong("Label"), className="mb-1"),
+                        dbc.RadioItems(
                             id="ml-label-dropdown",
                             options=[
-                                {"label": _("Papille (jaune)"), "value": 1},
-                                {"label": _("Lésion (rouge)"), "value": 2},
-                                {"label": _("Fond (vert)"), "value": 3},
+                                {
+                                    "label": html.Span(
+                                        [html.Span("⬤ ", style={"color": "#FFD700"}), "Optic Disc"],
+                                    ),
+                                    "value": 1,
+                                },
+                                {
+                                    "label": html.Span(
+                                        [html.Span("⬤ ", style={"color": "#FF4444"}), "Lesion"],
+                                    ),
+                                    "value": 2,
+                                },
+                                {
+                                    "label": html.Span(
+                                        [html.Span("⬤ ", style={"color": "#00CC44"}), "Background"],
+                                    ),
+                                    "value": 3,
+                                },
                             ],
                             value=1,
-                            style={"width": "100%"},
+                            className="mb-2",
+                            inputStyle={"marginRight": "6px"},
                         ),
-                        html.P(_("Taille du pinceau :")),
+                        html.P(html.Strong("Brush size"), className="mb-0"),
                         dcc.Slider(
                             id="ml-line-width",
                             min=1,
                             max=20,
                             step=1,
                             value=7,
-                            tooltip={"placement": "bottom", "always_visible": False},
+                            marks={1: "1", 10: "10", 20: "20"},
+                            tooltip={"placement": "bottom", "always_visible": True},
                         ),
-                        html.P(_("Segmentation :")),
+                        html.Hr(className="my-2"),
+                        # — Squiggle status ————————————————————————
+                        html.Div(id="ml-squiggle-status", className="mb-2"),
+                        # — Actions ———————————————————————————————
                         dbc.Button(
-                            [
-                                html.I(
-                                    className="fas fa-magic",
-                                    style={"margin-right": "5px"},
-                                ),
-                                _("Segmenter les zones dessinées"),
-                            ],
+                            [html.I(className="fas fa-magic me-2"), "Segment"],
                             id="ml-segment-btn",
                             color="primary",
-                            className="mb-2",
+                            className="w-100 mb-2",
+                            disabled=True,
                         ),
                         dbc.Button(
-                            [
-                                html.I(
-                                    className="fas fa-check",
-                                    style={"marginRight": "5px"},
-                                ),
-                                _("Accepter la segmentation"),
-                            ],
+                            [html.I(className="fas fa-check me-2"), "Accept segmentation"],
                             id="ml-accept-zones-btn",
                             color="success",
-                            className="mb-2",
-                            style={"width": "100%"},
+                            className="w-100 mb-3",
+                            disabled=True,
                         ),
-                        html.P(_("Réinitialisation")),
                         dbc.Button(
-                            [
-                                html.I(
-                                    className="fas fa-undo",
-                                    style={"marginRight": "5px"},
-                                ),
-                                _("Réinitialiser la segmentation"),
-                            ],
+                            [html.I(className="fas fa-undo me-2"), "Reset strokes"],
                             id="ml-reset-btn",
                             color="danger",
-                            className="mb-2",
-                            style={"width": "100%"},
+                            outline=True,
+                            size="sm",
+                            className="w-100",
                         ),
                     ],
                     className="right-block",
@@ -2852,6 +2866,55 @@ def store_ml_local_image(contents):
 
 
 @app.callback(
+    Output("ml-segment-btn", "disabled"),
+    Output("ml-accept-zones-btn", "disabled"),
+    Output("ml-squiggle-status", "children"),
+    Output("ml-upload-filename", "children"),
+    Input("ml-squiggle-store", "data"),
+    Input("ml-file-dropdown", "value"),
+    Input("ml-image-store", "data"),
+    Input("ml-segmentation-mask", "data"),
+    Input("ml-upload-image", "filename"),
+)
+def update_ml_controls(squiggles, file_val, image_store, mask, upload_filename):
+    squiggles = squiggles or []
+    has_image = bool(file_val or image_store)
+    counts = {1: 0, 2: 0, 3: 0}
+    for s in squiggles:
+        counts[s.get("label", 0)] += 1
+    unique_labels = sum(1 for v in counts.values() if v > 0)
+    segment_disabled = not (has_image and unique_labels >= 2)
+    accept_disabled = not bool(mask)
+
+    if not squiggles:
+        if not has_image:
+            status = html.P("← Load an image to start.", className="text-muted mb-0",
+                            style={"fontSize": "0.8rem"})
+        else:
+            status = html.P("Draw strokes on the image (≥ 2 labels).",
+                            className="text-muted mb-0", style={"fontSize": "0.8rem"})
+    else:
+        label_info = [(1, "#FFD700", "Disc"), (2, "#FF4444", "Lesion"), (3, "#00CC44", "BG")]
+        badges = []
+        for val, col, name in label_info:
+            n = counts[val]
+            text_col = "dark" if n > 0 else "secondary"
+            badges.append(
+                dbc.Badge(
+                    f"{n} {name}",
+                    color="light",
+                    text_color=text_col,
+                    className="me-1",
+                    style={"borderLeft": f"3px solid {col}", "fontSize": "0.75rem"},
+                )
+            )
+        status = html.Div(badges, className="d-flex flex-wrap gap-1 mb-1")
+
+    fname = html.Span(upload_filename, style={"fontStyle": "italic"}) if upload_filename else ""
+    return segment_disabled, accept_disabled, status, fname
+
+
+@app.callback(
     Output("ml-image-graph", "figure"),
     Output("ml-squiggle-store", "data", allow_duplicate=True),
     Output("ml-file-dropdown", "value", allow_duplicate=True),
@@ -2904,7 +2967,8 @@ def update_ml_figure(
             )
         else:
             fig = scatter_fig
-        return fig, [], file_val
+        dropdown_out = None if triggered_id == "ml-image-store" else file_val_dropdown
+        return fig, [], dropdown_out
 
     if file_val:
         try:
@@ -2962,7 +3026,8 @@ def update_ml_figure(
 
     fig.update_layout(shapes=shapes)
 
-    return fig, squiggles, file_val
+    dropdown_out = None if triggered_id == "ml-image-store" else file_val_dropdown
+    return fig, squiggles, dropdown_out
 
 
 @app.callback(
@@ -2981,12 +3046,16 @@ def ml_run_segmentation(n_seg, n_reset, file_val, image_store, squiggles, langua
     _ = get_translator(language)
     triggered = ctx.triggered_id if hasattr(ctx, "triggered_id") else None
     if triggered == "ml-reset-btn":
-        return "", dash.no_update, None
+        return "", dash.no_update, None  # clears result, mask
 
     effective_image = file_val or image_store
     if not effective_image or not squiggles or len(squiggles) < 2:
         return (
-            _("Ajoutez au moins 2 squiggles (fond + lésion)."),
+            dbc.Alert(
+                [html.I(className="fas fa-exclamation-triangle me-2"),
+                 "Draw at least 2 strokes with different labels before segmenting."],
+                color="warning", className="py-2 my-1",
+            ),
             dash.no_update,
             dash.no_update,
         )
@@ -3053,10 +3122,14 @@ def ml_run_segmentation(n_seg, n_reset, file_val, image_store, squiggles, langua
     fig.update_layout(width=700, height=700, margin=dict(l=0, r=0, t=0, b=0))
     mask_json = json.dumps(mask_pred.tolist())
     return (
-        html.Div(
-            _(
-                "Segmentation calculée ! Cliquez sur « Accepter comme zones » pour exporter les lésions."
-            )
+        dbc.Alert(
+            [
+                html.I(className="fas fa-check-circle me-2"),
+                "Segmentation complete — click ",
+                html.Strong("Accept"),
+                " to transfer zones to manual annotation.",
+            ],
+            color="success", className="py-2 my-1",
         ),
         fig,
         mask_json,
