@@ -7,6 +7,12 @@ import random
 import re
 import uuid
 import zipfile
+from flask_login import LoginManager, login_user, logout_user, current_user
+from auth import (
+    User, init_db, get_user_by_id, verify_user, create_user,
+    delete_user, update_password, get_all_users,
+    get_userdata_dir, load_patient_data, save_patient_data,
+)
 from PIL import Image
 from dash import Dash, html, dcc, Input, Output, State, ctx, Patch
 from dash import callback_context
@@ -870,12 +876,122 @@ app = Dash(
     suppress_callback_exceptions=True,
 )
 server = app.server
+
+# ── Auth setup ────────────────────────────────────────────────────────────────
+_secret_key_file = "secret_key.txt"
+if os.path.exists(_secret_key_file):
+    with open(_secret_key_file) as _f:
+        server.config["SECRET_KEY"] = _f.read().strip()
+else:
+    _key = os.urandom(32).hex()
+    with open(_secret_key_file, "w") as _f:
+        _f.write(_key)
+    server.config["SECRET_KEY"] = _key
+
+login_manager = LoginManager()
+login_manager.init_app(server)
+login_manager.login_view = "/"
+
+@login_manager.user_loader
+def load_user(user_id):
+    return get_user_by_id(user_id)
+
+init_db()
+# ─────────────────────────────────────────────────────────────────────────────
+
 filenames = get_filenames()
 
 
-app.layout = html.Div(
-    [dcc.Store(id="language-store", data="en"), html.Div(id="page-content")]
-)
+app.layout = html.Div([
+    dcc.Location(id="url", refresh=False),
+    dcc.Store(id="language-store", data="en"),
+    dcc.Store(id="current-user-store", data=None),
+    html.Div(id="page-content"),
+])
+
+
+def layout_login():
+    return dbc.Container(
+        [
+            html.Div(
+                [
+                    html.Img(src=app.get_asset_url("logo.png"), height="80px"),
+                    html.H3("FundusTracker", className="mt-2 fw-bold"),
+                    html.P("Sign in to access your data", className="text-muted"),
+                ],
+                className="text-center mb-4",
+            ),
+            dbc.Card(
+                dbc.CardBody(
+                    [
+                        dbc.Input(id="login-username", placeholder="Username", className="mb-2", autocomplete="username"),
+                        dbc.Input(id="login-password", type="password", placeholder="Password", className="mb-3", autocomplete="current-password"),
+                        dbc.Button("Sign in", id="login-btn", color="primary", className="w-100"),
+                        html.Div(id="login-error", className="mt-2 text-center"),
+                    ]
+                ),
+                className="shadow-sm",
+            ),
+        ],
+        style={"maxWidth": "380px", "marginTop": "10vh"},
+    )
+
+
+def layout_admin():
+    users = get_all_users()
+    rows = []
+    for u in users:
+        data_path = os.path.join("userdata", str(u["id"]), "patients.json")
+        patient_count = 0
+        if os.path.exists(data_path):
+            try:
+                with open(data_path) as f:
+                    d = json.load(f)
+                patient_count = len(d) if isinstance(d, dict) else 0
+            except Exception:
+                pass
+        rows.append(
+            dbc.ListGroupItem(
+                [
+                    html.Span(
+                        [
+                            dbc.Badge("Admin", color="danger", className="me-2") if u["is_admin"] else None,
+                            html.Strong(u["username"]),
+                            html.Span(f" — {patient_count} patient(s)", className="text-muted ms-2", style={"fontSize": "0.85rem"}),
+                            html.Span(f"  (created {u['created_at'][:10]})", className="text-muted ms-1", style={"fontSize": "0.8rem"}),
+                        ]
+                    ),
+                    dbc.Button(
+                        html.I(className="fas fa-trash"),
+                        id={"type": "admin-delete-user", "index": u["id"]},
+                        color="danger", size="sm", outline=True, className="ms-auto",
+                        disabled=bool(u["is_admin"]),
+                    ),
+                ],
+                className="d-flex justify-content-between align-items-center",
+            )
+        )
+
+    return html.Div([
+        dbc.Container([
+            html.H4("User Management", className="mt-3 mb-3"),
+            dbc.ListGroup(rows, className="mb-4"),
+            html.Hr(),
+            html.H5("Create new user"),
+            dbc.Row([
+                dbc.Col(dbc.Input(id="admin-new-username", placeholder="Username"), width=4),
+                dbc.Col(dbc.Input(id="admin-new-password", type="password", placeholder="Password"), width=4),
+                dbc.Col(
+                    dbc.Checklist(
+                        options=[{"label": "Admin", "value": "admin"}],
+                        id="admin-new-is-admin", value=[],
+                    ), width=2,
+                ),
+                dbc.Col(dbc.Button("Create", id="admin-create-user-btn", color="primary"), width=2),
+            ], className="mb-2"),
+            html.Div(id="admin-feedback", className="mt-2"),
+        ], fluid=True),
+    ])
 
 
 def serve_layout(language):
@@ -2158,59 +2274,59 @@ def serve_layout(language):
             style={"display": "flex", "justifyContent": "space-between"},
         )
 
+    user = current_user if current_user.is_authenticated else None
+    admin_tabs = []
+    if user and user.is_admin:
+        admin_tabs = [dcc.Tab(label="⚙️ Admin", value="tab-admin", children=layout_admin())]
+
     return html.Div(
         [
             html.Div(
-                children=[
-                    html.Img(
-                        src=app.get_asset_url("logo.png"),
-                        style={
-                            "height": "100px",
-                            "verticalAlign": "middle",
-                            "marginRight": "10px",
-                        },
+                [
+                    html.Div(
+                        children=[
+                            html.Img(
+                                src=app.get_asset_url("logo.png"),
+                                style={"height": "100px", "verticalAlign": "middle", "marginRight": "10px"},
+                            ),
+                            html.Span(
+                                "FundusTracker",
+                                style={"fontSize": "40px", "verticalAlign": "middle", "fontWeight": "bold"},
+                            ),
+                        ],
+                        className="logo-container",
+                        style={"textAlign": "center", "flex": "1"},
                     ),
-                    html.Span(
-                        "FundusTracker",
-                        style={
-                            "fontSize": "40px",
-                            "verticalAlign": "middle",
-                            "fontWeight": "bold",
-                        },
+                    html.Div(
+                        [
+                            html.Span(
+                                f"👤 {user.username}" if user else "",
+                                className="me-3 text-muted",
+                                style={"fontSize": "0.9rem"},
+                            ),
+                            dbc.Button(
+                                [html.I(className="fas fa-sign-out-alt me-1"), "Logout"],
+                                id="logout-btn",
+                                color="light",
+                                size="sm",
+                                outline=True,
+                            ),
+                        ],
+                        style={"position": "absolute", "top": "18px", "right": "18px", "display": "flex", "alignItems": "center"},
                     ),
                 ],
-                className="logo-container",
-                style={"textAlign": "center"},
+                style={"position": "relative"},
             ),
             dcc.Tabs(
                 id="tabs",
                 value="tab-home",
                 children=[
-                    dcc.Tab(
-                        label="🏠 Home",
-                        value="tab-home",
-                        children=layout_home(),
-                    ),
-                    dcc.Tab(
-                        label=_("Segmentation semi-automatique"),
-                        value="tab-ml",
-                        children=layout_semiauto(),
-                    ),
-                    dcc.Tab(
-                        label=_("Segmentation manuelle"),
-                        value="tab-manuelle",
-                        children=layout_manual(),
-                    ),
-                    dcc.Tab(
-                        label=_("Suivi de patients"),
-                        value="tab-patients",
-                        children=layout_patients(),
-                    ),
-                    dcc.Tab(
-                        label=_("FAQ & À propos"),
-                        value="tab-about",
-                        children=layout_about(language),
-                    ),
+                    dcc.Tab(label="🏠 Home", value="tab-home", children=layout_home()),
+                    dcc.Tab(label=_("Segmentation semi-automatique"), value="tab-ml", children=layout_semiauto()),
+                    dcc.Tab(label=_("Segmentation manuelle"), value="tab-manuelle", children=layout_manual()),
+                    dcc.Tab(label=_("Suivi de patients"), value="tab-patients", children=layout_patients()),
+                    dcc.Tab(label=_("FAQ & À propos"), value="tab-about", children=layout_about(language)),
+                    *admin_tabs,
                 ],
             ),
             html.Footer(
@@ -2285,14 +2401,112 @@ def serve_layout(language):
             dcc.Store(id="undo-store", data=[]),
             dcc.Store(id="sift-homography-store", data=None),
             dcc.Store(id="pre-sift-image-store", data=None),
+            dcc.Store(id="patient-autosave-store", data=None),
         ]
     )
 
 
-@app.callback(Output("page-content", "children"), Input("language-store", "data"))
-def update_layout_on_language_change(language):
-
+@app.callback(
+    Output("page-content", "children"),
+    Input("language-store", "data"),
+    Input("current-user-store", "data"),
+)
+def update_layout_on_language_change(language, _user_data):
+    if not current_user.is_authenticated:
+        return layout_login()
     return serve_layout(language)
+
+
+# ── Login ──────────────────────────────────────────────────────────────────────
+@app.callback(
+    Output("current-user-store", "data"),
+    Output("login-error", "children"),
+    Input("login-btn", "n_clicks"),
+    State("login-username", "value"),
+    State("login-password", "value"),
+    prevent_initial_call=True,
+)
+def handle_login(n, username, password):
+    if not username or not password:
+        return dash.no_update, dbc.Alert("Please fill in all fields.", color="warning", className="py-1")
+    user = verify_user(username, password)
+    if user:
+        login_user(user, remember=True)
+        return {"id": user.id, "username": user.username, "is_admin": user.is_admin}, ""
+    return dash.no_update, dbc.Alert("Invalid username or password.", color="danger", className="py-1")
+
+
+# ── Logout ─────────────────────────────────────────────────────────────────────
+@app.callback(
+    Output("current-user-store", "data", allow_duplicate=True),
+    Input("logout-btn", "n_clicks"),
+    prevent_initial_call=True,
+)
+def handle_logout(n):
+    if n:
+        logout_user()
+    return None
+
+
+# ── Load patient data on login ─────────────────────────────────────────────────
+@app.callback(
+    Output("longitudinal-series-store", "data", allow_duplicate=True),
+    Input("current-user-store", "data"),
+    prevent_initial_call=True,
+)
+def load_data_on_login(user_data):
+    if not current_user.is_authenticated:
+        return dash.no_update
+    return load_patient_data(current_user.id)
+
+
+# ── Auto-save patient data when it changes ────────────────────────────────────
+@app.callback(
+    Output("patient-autosave-store", "data"),
+    Input("longitudinal-series-store", "data"),
+    prevent_initial_call=True,
+)
+def auto_save_patients(series_data):
+    if not current_user.is_authenticated or series_data is None:
+        return dash.no_update
+    save_patient_data(current_user.id, series_data)
+    return dash.no_update
+
+
+# ── Admin: create user ─────────────────────────────────────────────────────────
+@app.callback(
+    Output("admin-feedback", "children"),
+    Input("admin-create-user-btn", "n_clicks"),
+    State("admin-new-username", "value"),
+    State("admin-new-password", "value"),
+    State("admin-new-is-admin", "value"),
+    prevent_initial_call=True,
+)
+def admin_create_user(n, username, password, is_admin_val):
+    if not current_user.is_authenticated or not current_user.is_admin:
+        return dbc.Alert("Unauthorized.", color="danger", className="py-1")
+    if not username or not password:
+        return dbc.Alert("Username and password required.", color="warning", className="py-1")
+    ok, err = create_user(username, password, is_admin=("admin" in (is_admin_val or [])))
+    if ok:
+        return dbc.Alert(f"User '{username}' created.", color="success", className="py-1")
+    return dbc.Alert(err, color="danger", className="py-1")
+
+
+# ── Admin: delete user ─────────────────────────────────────────────────────────
+@app.callback(
+    Output("admin-feedback", "children", allow_duplicate=True),
+    Input({"type": "admin-delete-user", "index": ALL}, "n_clicks"),
+    prevent_initial_call=True,
+)
+def admin_delete_user(n_clicks_list):
+    if not current_user.is_authenticated or not current_user.is_admin:
+        return dash.no_update
+    triggered = ctx.triggered_id
+    if not triggered or not any(n_clicks_list):
+        return dash.no_update
+    delete_user(triggered["index"])
+    return dbc.Alert("User deleted.", color="info", className="py-1")
 
 
 @app.callback(
