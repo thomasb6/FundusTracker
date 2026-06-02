@@ -6369,16 +6369,16 @@ def export_segmentation_mask(n_clicks, stored_shapes, file_val, uploaded_image, 
     State("uploaded-image-store", "data"),
     State("language-store", "data"),
     State("axial-length-input", "value"),
+    State("sift-homography-store", "data"),
     prevent_initial_call=True,
 )
-def export_all_zip(n_clicks, stored_shapes, file_val, uploaded_image, language, axial_length):
+def export_all_zip(n_clicks, stored_shapes, file_val, uploaded_image, language, axial_length, M_list):
     if not n_clicks or not stored_shapes:
         return dash.no_update
     df, filename_xlsx = process_image_analysis_data(
         stored_shapes, file_val, uploaded_image, language, axial_length
     )
     base_name = filename_xlsx.replace(".xlsx", "")
-    json_str = json.dumps(stored_shapes, indent=2)
     mask_bytes = None
     try:
         image_id = file_val or uploaded_image
@@ -6397,7 +6397,12 @@ def export_all_zip(n_clicks, stored_shapes, file_val, uploaded_image, language, 
             with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
                 df.to_excel(writer, index=False, sheet_name="Analyse")
             zf.writestr(f"{base_name}_analyse.xlsx", excel_buffer.getvalue())
-        zf.writestr(f"{base_name}_annotations.json", json_str)
+        if M_list:
+            shapes_original = transform_shapes_to_original(stored_shapes, M_list)
+            zf.writestr(f"{base_name}_annotations_sift.json",     json.dumps(stored_shapes,   indent=2))
+            zf.writestr(f"{base_name}_annotations_original.json", json.dumps(shapes_original, indent=2))
+        else:
+            zf.writestr(f"{base_name}_annotations.json", json.dumps(stored_shapes, indent=2))
         if mask_bytes:
             zf.writestr(f"{base_name}_mask.png", mask_bytes)
     return dcc.send_bytes(zip_buffer.getvalue(), f"{base_name}_complet.zip")
