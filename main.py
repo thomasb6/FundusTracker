@@ -959,11 +959,14 @@ def serve_layout(language):
                                     style={"zIndex": "1000", "position": "relative"}
                                     # Pour être sûr qu'il est cliquable
                                 ),
-                                dcc.Graph(
-                                    id="fig-image",
-                                    config=config_graph,
-                                    style={"width": "100%", "height": "auto"},
-                                    className="graph-figure",
+                                dcc.Loading(
+                                    dcc.Graph(
+                                        id="fig-image",
+                                        config=config_graph,
+                                        style={"width": "100%", "height": "auto"},
+                                        className="graph-figure",
+                                    ),
+                                    type="circle",
                                 ),
                                 html.Div(id="output-area", className="output-area"),
                             ],
@@ -1435,16 +1438,22 @@ def serve_layout(language):
                 ),
                 html.Div(
                     [
-                        dcc.Graph(
-                            id="ml-image-graph",
-                            config={
-                                "modeBarButtonsToAdd": ["drawopenpath", "eraseshape"],
-                                "displaylogo": False,
-                            },
-                            style={"width": "100%", "height": "auto"},
-                            className="graph-figure",
+                        dcc.Loading(
+                            dcc.Graph(
+                                id="ml-image-graph",
+                                config={
+                                    "modeBarButtonsToAdd": ["drawopenpath", "eraseshape"],
+                                    "displaylogo": False,
+                                },
+                                style={"width": "100%", "height": "auto"},
+                                className="graph-figure",
+                            ),
+                            type="circle",
                         ),
-                        html.Div(id="ml-segment-result"),
+                        dcc.Loading(
+                            html.Div(id="ml-segment-result"),
+                            type="default",
+                        ),
                     ],
                     className="middle-block",
                 ),
@@ -1458,6 +1467,25 @@ def serve_layout(language):
                                 for f in filenames
                             ],
                             placeholder=_("Choisissez une image"),
+                        ),
+                        html.P(_("Ou chargez une image locale :")),
+                        dcc.Upload(
+                            id="ml-upload-image",
+                            children=html.Div(
+                                [_("Glissez-déposez une image ou "), html.A(_("cliquez ici"))]
+                            ),
+                            style={
+                                "width": "100%",
+                                "height": "40px",
+                                "lineHeight": "40px",
+                                "borderWidth": "1px",
+                                "borderStyle": "dashed",
+                                "borderRadius": "5px",
+                                "textAlign": "center",
+                                "marginBottom": "8px",
+                                "cursor": "pointer",
+                            },
+                            multiple=False,
                         ),
                         html.P(_("Pinceau/étiquette :")),
                         dcc.Dropdown(
@@ -2227,6 +2255,7 @@ def find_optic_nerve(shapes, language):
     State("zone-selector", "value"),
     State("ml-segmentation-mask", "data"),
     State("ml-file-dropdown", "value"),
+    State("ml-image-store", "data"),
     State("language-store", "data"),
     State("custom-label-input", "value"),
     State("undo-store", "data"),
@@ -2247,6 +2276,7 @@ def update_shapes_combined(
         selected_zone_idx,
         mask_json,
         ml_file_val,
+        ml_image_store,
         language,
         custom_label_text,
         undo_history  # State undo-store
@@ -2302,14 +2332,15 @@ def update_shapes_combined(
     # --- 4. LOGIQUE DES MODIFICATIONS ---
 
     if trigger == "ml-accept-zones-btn":
-        if not mask_json or not ml_file_val:
+        effective_ml_image = ml_file_val or ml_image_store
+        if not mask_json or not effective_ml_image:
             return (
                 dash.no_update,
                 _("Aucune segmentation ML détectée."),
                 new_upload,
                 dash.no_update,
                 dash.no_update,
-                undo_history  # <--- AJOUTÉ
+                undo_history
             )
         mask = np.array(json.loads(mask_json))
         papille_shapes = mask_to_shapes(mask, label_value=1, min_area=20)
@@ -2327,8 +2358,7 @@ def update_shapes_combined(
         for i, sh in enumerate(new_shapes):
             sh["customid"] = i + 1
         summary = generate_summary(new_shapes, language, axial_length)
-        # Retourne 6 valeurs
-        return new_shapes, summary, new_upload, ml_file_val, "tab-manuelle", undo_history
+        return new_shapes, summary, new_upload, effective_ml_image, "tab-manuelle", undo_history
 
     if trigger == "reset-button":
         new_upload = [
@@ -2687,6 +2717,17 @@ def download_annotations(n_clicks, stored_shapes, file_val, local_filename):
 
 
 @app.callback(
+    Output("ml-image-store", "data", allow_duplicate=True),
+    Input("ml-upload-image", "contents"),
+    prevent_initial_call=True,
+)
+def store_ml_local_image(contents):
+    if contents:
+        return contents
+    return dash.no_update
+
+
+@app.callback(
     Output("ml-image-graph", "figure"),
     Output("ml-squiggle-store", "data", allow_duplicate=True),
     Output("ml-file-dropdown", "value", allow_duplicate=True),
@@ -2807,24 +2848,26 @@ def update_ml_figure(
     Input("ml-segment-btn", "n_clicks"),
     Input("ml-reset-btn", "n_clicks"),
     State("ml-file-dropdown", "value"),
+    State("ml-image-store", "data"),
     State("ml-squiggle-store", "data"),
     State("language-store", "data"),
     prevent_initial_call=True,
 )
-def ml_run_segmentation(n_seg, n_reset, file_val, squiggles, language):
+def ml_run_segmentation(n_seg, n_reset, file_val, image_store, squiggles, language):
     _ = get_translator(language)
     triggered = ctx.triggered_id if hasattr(ctx, "triggered_id") else None
     if triggered == "ml-reset-btn":
         return "", dash.no_update, None
 
-    if not file_val or not squiggles or len(squiggles) < 2:
+    effective_image = file_val or image_store
+    if not effective_image or not squiggles or len(squiggles) < 2:
         return (
             _("Ajoutez au moins 2 squiggles (fond + lésion)."),
             dash.no_update,
             dash.no_update,
         )
 
-    image = load_image_any(file_val)
+    image = load_image_any(effective_image)
     arr = np.array(image)
     if arr.ndim == 3 and arr.shape[2] == 4:
         arr = arr[:, :, :3]
