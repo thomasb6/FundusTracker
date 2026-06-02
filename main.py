@@ -2315,7 +2315,31 @@ def update_figure(
             try:
                 img = load_image_any(image_id)
                 fig = generate_figure(img, file_val=image_id)
-                fig["layout"]["shapes"] = []
+                # If shapes changed at the same time (e.g. accept from semi-auto),
+                # apply them directly rather than returning an empty figure.
+                if stored_shapes and "stored-shapes" in all_triggered and "reset-button" not in all_triggered:
+                    is_visible = True if visibility_state is None else visibility_state
+                    shapes_to_draw = []
+                    for shape in stored_shapes:
+                        s = shape.copy()
+                        s["opacity"] = 1 if is_visible else 0
+                        s["editable"] = bool(is_visible)
+                        s["visible"] = True
+                        s["layer"] = "above"
+                        s["line"]["width"] = 1
+                        s["line"]["dash"] = "longdash" if dashed_contour else "solid"
+                        if s.get("customdata") == _("nerf optique"):
+                            s["fillcolor"] = "rgba(255, 255, 0, 0.2)"
+                            s["line"]["color"] = "yellow"
+                        elif s.get("customdata") == _("Exclusion"):
+                            s["fillcolor"] = "rgba(0, 0, 0, 0.4)"
+                            s["line"]["color"] = "gray"
+                        else:
+                            s["fillcolor"] = "rgba(255, 255, 255, 0.2)"
+                        shapes_to_draw.append(shape_for_plotly(s))
+                    fig["layout"]["shapes"] = shapes_to_draw
+                else:
+                    fig["layout"]["shapes"] = []
                 return fig
             except Exception:
                 return scatter_fig
