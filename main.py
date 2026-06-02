@@ -1559,14 +1559,18 @@ def serve_layout(language):
                 # ── Middle: graph + result ───────────────────────────────────
                 html.Div(
                     [
-                        dcc.Graph(
-                            id="ml-image-graph",
-                            config={
-                                "modeBarButtonsToAdd": ["drawopenpath", "eraseshape"],
-                                "displaylogo": False,
-                            },
-                            style={"width": "100%", "height": "auto"},
-                            className="graph-figure",
+                        dcc.Loading(
+                            dcc.Graph(
+                                id="ml-image-graph",
+                                config={
+                                    "modeBarButtonsToAdd": ["drawopenpath", "eraseshape"],
+                                    "displaylogo": False,
+                                },
+                                style={"width": "100%", "height": "auto"},
+                                className="graph-figure",
+                            ),
+                            type="circle",
+                            delay_show=200,
                         ),
                         dcc.Loading(
                             html.Div(id="ml-segment-result"),
@@ -2298,7 +2302,14 @@ def update_figure(
     # 1. Chargement initial de l'image
     image_triggers = ["file-dropdown", "uploaded-image-store", "annotation-image-store", "reset-button"]
     if triggered_id in image_triggers or current_fig is None or "layout" not in current_fig:
-        image_id = annotation_image_id or file_val or uploaded_image
+        if triggered_id == "file-dropdown":
+            image_id = file_val
+        elif triggered_id == "uploaded-image-store":
+            image_id = uploaded_image or file_val
+        elif triggered_id == "annotation-image-store":
+            image_id = annotation_image_id
+        else:
+            image_id = annotation_image_id or file_val or uploaded_image
         if image_id:
             try:
                 img = load_image_any(image_id)
@@ -2970,6 +2981,27 @@ def update_ml_figure(
         dropdown_out = None if triggered_id == "ml-image-store" else file_val_dropdown
         return fig, [], dropdown_out
 
+    colors = {1: "yellow", 2: "red", 3: "lime"}
+
+    # Fast path: only a new stroke was drawn — update shapes via Patch, no image reload
+    if triggered_id == "ml-image-graph" and relayout_data and "shapes" in relayout_data:
+        for i, sh in enumerate(relayout_data["shapes"]):
+            if i >= len(squiggles):
+                squiggles.append({"path": sh["path"], "label": label, "width": width})
+        new_shapes = [
+            {
+                "type": "path",
+                "path": sq["path"],
+                "line": {"color": colors.get(sq["label"], "yellow"), "width": sq.get("width", 7)},
+                "layer": "above",
+            }
+            for sq in squiggles
+        ]
+        patched = Patch()
+        patched["layout"]["shapes"] = new_shapes
+        return patched, squiggles, dash.no_update
+
+    # Full image reload (image changed or label/width changed)
     if file_val:
         try:
             img = load_image_any(file_val)
@@ -2984,46 +3016,22 @@ def update_ml_figure(
                 margin=dict(l=0, r=0, t=0, b=0),
                 shapes=[],
                 uirevision=file_val,
+                newshape=dict(line=dict(color="white", width=1, dash="longdash")),
             )
         except Exception:
             fig = scatter_fig
     else:
         fig = scatter_fig
 
-    shapes = []
-    colors = {1: "yellow", 2: "red", 3: "lime"}
-    if squiggles:
-        for squig in squiggles:
-            shapes.append(
-                {
-                    "type": "path",
-                    "path": squig["path"],
-                    "line": {
-                        "color": colors.get(squig["label"], "yellow"),
-                        "width": squig.get("width", 7),
-                    },
-                    "layer": "above",
-                }
-            )
-
-    if relayout_data and "shapes" in relayout_data:
-        for i, sh in enumerate(relayout_data["shapes"]):
-            if i >= len(squiggles):
-                squiggles.append({"path": sh["path"], "label": label, "width": width})
-        shapes = []
-        for squig in squiggles:
-            shapes.append(
-                {
-                    "type": "path",
-                    "path": squig["path"],
-                    "line": {
-                        "color": colors.get(squig["label"], "yellow"),
-                        "width": squig.get("width", 7),
-                    },
-                    "layer": "above",
-                }
-            )
-
+    shapes = [
+        {
+            "type": "path",
+            "path": sq["path"],
+            "line": {"color": colors.get(sq["label"], "yellow"), "width": sq.get("width", 7)},
+            "layer": "above",
+        }
+        for sq in squiggles
+    ]
     fig.update_layout(shapes=shapes)
 
     dropdown_out = None if triggered_id == "ml-image-store" else file_val_dropdown
@@ -3119,7 +3127,12 @@ def ml_run_segmentation(n_seg, n_reset, file_val, image_store, squiggles, langua
     )
     fig.update_xaxes(showticklabels=False, visible=False)
     fig.update_yaxes(showticklabels=False, visible=False)
-    fig.update_layout(width=700, height=700, margin=dict(l=0, r=0, t=0, b=0))
+    fig.update_layout(
+        width=700, height=700,
+        margin=dict(l=0, r=0, t=0, b=0),
+        dragmode="drawopenpath",
+        newshape=dict(line=dict(color="white", width=1, dash="longdash")),
+    )
     mask_json = json.dumps(mask_pred.tolist())
     return (
         dbc.Alert(
