@@ -2825,6 +2825,35 @@ def generate_summary(shapes, language, axial_length=None):
     )
 
 
+CLASS_COLORS = {
+    0:  (0,   0,   0),    # background / exclusion
+    1:  (255, 220, 0),    # optic nerve — yellow
+    2:  (220, 50,  50),   # atrophy — red
+    3:  (80,  80,  220),  # pigment — blue
+    4:  (255, 140, 0),    # plaque (uncertain) — orange
+    5:  (0,   200, 200),  # spot (uncertain) — cyan
+    6:  (200, 0,   200),  # peripapillary atrophy — magenta
+    7:  (0,   200, 80),   # active CNV — green
+    8:  (0,   100, 40),   # CNV scar — dark green
+    9:  (140, 0,   200),  # plaque — purple
+    10: (160, 160, 160),  # other — gray
+}
+
+
+def generate_color_mask(image_shape, shapes, language="fr"):
+    """RGB color-coded mask: each class gets a distinct color."""
+    raw = generate_mask_from_shapes(image_shape, shapes, language)
+    h, w = raw.shape[:2]
+    color_mask = np.zeros((h, w, 3), dtype=np.uint8)
+    for class_id, color in CLASS_COLORS.items():
+        color_mask[raw == class_id] = color
+    # Any unlisted class ID → gray
+    listed = set(CLASS_COLORS.keys())
+    unlisted = np.isin(raw, list(listed), invert=True)
+    color_mask[unlisted] = CLASS_COLORS[10]
+    return color_mask
+
+
 def generate_mask_from_shapes(image_shape, shapes, language="fr"):
     h, w = image_shape[:2]
     mask = np.zeros((h, w), dtype=np.uint8)
@@ -6346,8 +6375,9 @@ def export_segmentation_mask(n_clicks, stored_shapes, file_val, uploaded_image, 
         print(f"Erreur chargement image pour masque: {e}")
         return dash.no_update
     shapes = stored_shapes if stored_shapes else []
-    mask_array = generate_mask_from_shapes(image_shape, shapes, language)
-    is_success, buffer = cv2.imencode(".png", mask_array)
+    color_mask = generate_color_mask(image_shape, shapes, language)
+    # OpenCV expects BGR
+    is_success, buffer = cv2.imencode(".png", cv2.cvtColor(color_mask, cv2.COLOR_RGB2BGR))
     if not is_success:
         return dash.no_update
 
@@ -6356,9 +6386,7 @@ def export_segmentation_mask(n_clicks, stored_shapes, file_val, uploaded_image, 
     else:
         base_name = "local_image"
 
-    filename = f"{base_name}_mask.png"
-
-    return dcc.send_bytes(buffer.tobytes(), filename)
+    return dcc.send_bytes(buffer.tobytes(), f"{base_name}_mask.png")
 
 
 @app.callback(
@@ -6379,24 +6407,32 @@ def export_all_zip(n_clicks, stored_shapes, file_val, uploaded_image, language, 
         stored_shapes, file_val, uploaded_image, language, axial_length
     )
     base_name = filename_xlsx.replace(".xlsx", "")
+    image_png_bytes = None
     mask_bytes = None
     try:
         image_id = file_val or uploaded_image
         if image_id:
             pil_img = load_image_any(image_id)
+            # Source image as PNG
+            img_buf = io_buffer.BytesIO()
+            pil_img.save(img_buf, format="PNG")
+            image_png_bytes = img_buf.getvalue()
+            # Color-coded mask
             width, height = pil_img.size
-            mask_arr = generate_mask_from_shapes((height, width), stored_shapes, language)
-            is_success, buffer = cv2.imencode(".png", mask_arr)
+            color_mask = generate_color_mask((height, width), stored_shapes, language)
+            is_success, buffer = cv2.imencode(".png", cv2.cvtColor(color_mask, cv2.COLOR_RGB2BGR))
             if is_success:
                 mask_bytes = buffer.tobytes()
     except Exception as e:
-        print(f"Erreur lors de la génération du masque pour le ZIP : {e}")
+        print(f"Erreur lors de la génération des fichiers pour le ZIP : {e}")
     zip_buffer = io_buffer.BytesIO()
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
         with io_buffer.BytesIO() as excel_buffer:
             with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
                 df.to_excel(writer, index=False, sheet_name="Analyse")
             zf.writestr(f"{base_name}_analyse.xlsx", excel_buffer.getvalue())
+        if image_png_bytes:
+            zf.writestr(f"{base_name}.png", image_png_bytes)
         if M_list:
             shapes_original = transform_shapes_to_original(stored_shapes, M_list)
             zf.writestr(f"{base_name}_annotations_sift.json",     json.dumps(stored_shapes,   indent=2))
