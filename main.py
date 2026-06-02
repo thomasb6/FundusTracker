@@ -2282,8 +2282,61 @@ def serve_layout(language):
     if user and user.is_admin:
         admin_tabs = [dcc.Tab(label="⚙️ Admin", value="tab-admin", children=layout_admin())]
 
+    if user:
+        auth_widget = html.Div(
+            [
+                html.Span(
+                    [html.I(className="fas fa-user-circle me-1"), user.username],
+                    className="me-2 text-muted",
+                    style={"fontSize": "0.85rem"},
+                ),
+                dbc.Button(
+                    [html.I(className="fas fa-sign-out-alt me-1"), "Logout"],
+                    id="logout-btn", color="light", size="sm", outline=True,
+                ),
+                # Placeholder so IDs always exist in layout
+                dbc.Button(id="open-login-modal-btn", style={"display": "none"}),
+            ],
+            style={"display": "flex", "alignItems": "center", "gap": "6px"},
+        )
+    else:
+        auth_widget = html.Div(
+            [
+                dbc.Button(
+                    [html.I(className="fas fa-sign-in-alt me-1"), "Login"],
+                    id="open-login-modal-btn", color="primary", size="sm", outline=True,
+                ),
+                # Placeholder so IDs always exist in layout
+                dbc.Button(id="logout-btn", style={"display": "none"}),
+            ]
+        )
+
+    login_modal = dbc.Modal(
+        [
+            dbc.ModalHeader(dbc.ModalTitle("Sign in to your account")),
+            dbc.ModalBody(
+                [
+                    dbc.Input(id="login-username", placeholder="Username", className="mb-2", autocomplete="username"),
+                    dbc.Input(id="login-password", type="password", placeholder="Password", className="mb-3", autocomplete="current-password"),
+                    dbc.Button("Sign in", id="login-btn", color="primary", className="w-100"),
+                    html.Div(id="login-error", className="mt-2 text-center"),
+                    html.Hr(),
+                    html.P(
+                        "Don't have an account? Contact the administrator.",
+                        className="text-muted text-center mb-0",
+                        style={"fontSize": "0.8rem"},
+                    ),
+                ]
+            ),
+        ],
+        id="login-modal",
+        is_open=False,
+        centered=True,
+    )
+
     return html.Div(
         [
+            login_modal,
             html.Div(
                 [
                     html.Div(
@@ -2301,21 +2354,8 @@ def serve_layout(language):
                         style={"textAlign": "center", "flex": "1"},
                     ),
                     html.Div(
-                        [
-                            html.Span(
-                                f"👤 {user.username}" if user else "",
-                                className="me-3 text-muted",
-                                style={"fontSize": "0.9rem"},
-                            ),
-                            dbc.Button(
-                                [html.I(className="fas fa-sign-out-alt me-1"), "Logout"],
-                                id="logout-btn",
-                                color="light",
-                                size="sm",
-                                outline=True,
-                            ),
-                        ],
-                        style={"position": "absolute", "top": "18px", "right": "18px", "display": "flex", "alignItems": "center"},
+                        auth_widget,
+                        style={"position": "absolute", "top": "18px", "right": "18px"},
                     ),
                 ],
                 style={"position": "relative"},
@@ -2415,9 +2455,23 @@ def serve_layout(language):
     Input("current-user-store", "data"),
 )
 def update_layout_on_language_change(language, _user_data):
-    if not current_user.is_authenticated:
-        return layout_login()
     return serve_layout(language)
+
+
+# ── Open/close login modal ─────────────────────────────────────────────────────
+@app.callback(
+    Output("login-modal", "is_open"),
+    Input("open-login-modal-btn", "n_clicks"),
+    Input("current-user-store", "data"),
+    prevent_initial_call=True,
+)
+def toggle_login_modal(open_clicks, user_data):
+    triggered = ctx.triggered_id
+    if triggered == "open-login-modal-btn":
+        return True
+    if triggered == "current-user-store" and user_data:
+        return False  # successful login → close
+    return dash.no_update
 
 
 # ── Login ──────────────────────────────────────────────────────────────────────
@@ -2436,6 +2490,7 @@ def handle_login(n, username, password):
     if user:
         login_user(user, remember=True)
         return {"id": user.id, "username": user.username, "is_admin": user.is_admin}, ""
+    # Bad credentials: keep modal open by not closing it (login-error shown)
     return dash.no_update, dbc.Alert("Invalid username or password.", color="danger", className="py-1")
 
 
