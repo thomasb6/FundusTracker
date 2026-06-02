@@ -50,8 +50,10 @@ FOLDER_PATH = "exemples"
 GITHUB_API_URL = (
     f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{FOLDER_PATH}"
 )
-GITHUB_TOKEN = "ghp_nwTO1ndY???????????rsxh9HxEJKi2QiZNDWGCSX?3?z?U?g?NP"
-GITHUB_TOKEN = GITHUB_TOKEN.replace("?", "")
+# Optional: only used to raise the GitHub API rate limit when listing the
+# public `exemples/` folder. The repo is public, so the API works without it.
+# Never hard-code a token here — read it from the environment instead.
+GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
 
 import numpy as np
 import pandas as pd
@@ -493,10 +495,9 @@ def mask_to_shapes(mask, label_value=1, min_area=200, contour_tolerance=3.0):
 
 def get_filenames(path=FOLDER_PATH):
 
-    headers = {
-        "Authorization": f"token {GITHUB_TOKEN}",
-        "Accept": "application/vnd.github.v3+json",
-    }
+    headers = {"Accept": "application/vnd.github.v3+json"}
+    if GITHUB_TOKEN:
+        headers["Authorization"] = f"token {GITHUB_TOKEN}"
     url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{path}"
     response = requests.get(url, headers=headers)
     if response.status_code != 200:
