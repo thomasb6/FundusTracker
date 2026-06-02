@@ -16,11 +16,17 @@ RUN apt-get update && apt-get install -y \
 ENV APP_HOME=/app
 WORKDIR $APP_HOME
 
-# Copier le code dans l’image
-COPY . ./
+# --- ÉTAPE OPTIMISATION CACHE ---
+# 1. On copie UNIQUEMENT le fichier des dépendances Python
+COPY requirements.txt ./
 
-# Installer les dépendances Python
+# 2. On installe les dépendances. Cette couche sera mise en cache par Docker.
+# Elle ne sera réexécutée QUE si tu modifies ton fichier requirements.txt.
 RUN pip install --no-cache-dir -r requirements.txt
+# --------------------------------
+
+# 3. On copie le reste de ton code (qui change souvent sur tes petites MAJ)
+COPY . ./
 
 EXPOSE 8080
 
