@@ -2314,30 +2314,7 @@ def serve_layout(language):
                                         style={"padding": "15px"},
                                     ),
                                 ),
-                                dcc.Tab(
-                                    label=_("Dossiers liés"),
-                                    value="sub-tab-linked-dossiers",
-                                    children=html.Div(
-                                        [
-                                            html.P(
-                                                [
-                                                    _("Dossiers My Dossiers reliés à ce patient. "),
-                                                    html.Small(
-                                                        _("Pour lier un dossier, utilisez 'Link to patient' lors de la sauvegarde."),
-                                                        className="text-muted",
-                                                    ),
-                                                ],
-                                                className="mt-3 mb-2",
-                                                style={"fontSize": "0.88rem"},
-                                            ),
-                                            dcc.Loading(
-                                                html.Div(id="patient-linked-dossiers"),
-                                                type="default",
-                                            ),
-                                        ],
-                                        style={"padding": "15px"},
-                                    ),
-                                ),
+
                             ],
                         ),
                     ],
@@ -5612,30 +5589,6 @@ def save_annotation_to_patient(
         _("Annotation sauvegardée !"), color="success", duration=2000
     )
 
-
-# ── Dossiers liés au patient actif ───────────────────────────────────────────
-@app.callback(
-    Output("patient-linked-dossiers", "children"),
-    Input("longitudinal-active-patient-store", "data"),
-    Input("patient-sub-tabs", "value"),
-    Input("dossiers-refresh-trigger", "data"),
-    prevent_initial_call=True,
-)
-def update_patient_linked_dossiers(active_patient_id, sub_tab, _refresh):
-    if sub_tab != "sub-tab-linked-dossiers":
-        return dash.no_update
-    if not current_user.is_authenticated or not active_patient_id:
-        return dbc.Alert("No patient selected.", color="light", className="text-center")
-    linked = list_dossiers_for_patient(current_user.id, active_patient_id)
-    if not linked:
-        return dbc.Alert(
-            [
-                html.I(className="fas fa-info-circle me-2"),
-                "No linked dossiers yet. When saving a dossier, choose this patient in 'Link to patient'.",
-            ],
-            color="light", className="text-center", style={"fontSize": "0.85rem"},
-        )
-    return _dossier_cards(linked)
 
 
 @app.callback(
