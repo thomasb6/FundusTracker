@@ -577,6 +577,35 @@ def cv2_to_base64(img_array):
     return f"data:image/png;base64,{encoded}"
 
 
+def transform_shapes_to_original(shapes, M_list):
+    """Apply M⁻¹ to bring annotation coordinates back to original (pre-SIFT) image space."""
+    M_inv = np.linalg.inv(np.array(M_list, dtype=np.float64))
+    result = []
+    for shape in shapes:
+        s = shape.copy()
+        if shape.get("type") == "path" and shape.get("path"):
+            coords = re.findall(r"[-+]?\d*\.?\d+", shape["path"])
+            if len(coords) >= 2:
+                pts = np.array([[float(coords[i]), float(coords[i + 1]), 1.0]
+                                for i in range(0, len(coords) - 1, 2)])
+                t = (M_inv @ pts.T).T
+                t = t[:, :2] / t[:, 2:3]
+                s["path"] = "M " + " L ".join(f"{x:.2f},{y:.2f}" for x, y in t)
+        elif shape.get("type") == "circle":
+            corners = np.array([
+                [shape["x0"], shape["y0"], 1.0],
+                [shape["x1"], shape["y0"], 1.0],
+                [shape["x0"], shape["y1"], 1.0],
+                [shape["x1"], shape["y1"], 1.0],
+            ])
+            t = (M_inv @ corners.T).T
+            t = t[:, :2] / t[:, 2:3]
+            s["x0"], s["x1"] = float(t[:, 0].min()), float(t[:, 0].max())
+            s["y0"], s["y1"] = float(t[:, 1].min()), float(t[:, 1].max())
+        result.append(s)
+    return result
+
+
 def align_images_sift_simple(ref_img_b64, target_img_b64):
 
     try:
@@ -619,10 +648,10 @@ def align_images_sift_simple(ref_img_b64, target_img_b64):
 
         aligned_img = cv2.warpPerspective(img_target, M, (w, h))
 
-        return cv2_to_base64(aligned_img), "Succès"
+        return cv2_to_base64(aligned_img), "Success", M.tolist()
 
     except Exception as e:
-        return None, str(e)
+        return None, str(e), None
 
 
 def layout_about(language):
@@ -2253,6 +2282,7 @@ def serve_layout(language):
             dcc.Store(id="local-filename-store", data=None),
             dcc.Store(id="visibility-store", data=True),
             dcc.Store(id="undo-store", data=[]),
+            dcc.Store(id="sift-homography-store", data=None),
         ]
     )
 
@@ -2555,7 +2585,9 @@ def update_shapes_combined(
         content_type, content_string = upload_contents.split(",")
         decoded = base64.b64decode(content_string)
         try:
-            new_annotations = json.loads(decoded.decode("utf-8"))
+            parsed = json.loads(decoded.decode("utf-8"))
+            # Support both legacy format (plain list) and new format ({metadata, shapes})
+            new_annotations = parsed.get("shapes", parsed) if isinstance(parsed, dict) else parsed
             optic_nerve_idx, _shape = find_optic_nerve(new_annotations, language)
             if optic_nerve_idx is not None and optic_nerve_idx > 0:
                 optic_nerve_shape = new_annotations.pop(optic_nerve_idx)
@@ -2867,24 +2899,35 @@ def export_to_excel(n_clicks, stored_shapes, file_val, uploaded_image, language,
     State("stored-shapes", "data"),
     State("file-dropdown", "value"),
     State("local-filename-store", "data"),
+    State("sift-homography-store", "data"),
     prevent_initial_call=True,
 )
-def download_annotations(n_clicks, stored_shapes, file_val, local_filename):
+def download_annotations(n_clicks, stored_shapes, file_val, local_filename, M_list):
     if not stored_shapes:
         return dash.no_update
 
-    content = json.dumps(stored_shapes, indent=2)
+    if M_list:
+        shapes_out = transform_shapes_to_original(stored_shapes, M_list)
+        export = {
+            "metadata": {
+                "sift_applied": True,
+                "sift_homography": M_list,
+                "coordinate_space": "original",
+            },
+            "shapes": shapes_out,
+        }
+    else:
+        export = {"metadata": {"sift_applied": False}, "shapes": stored_shapes}
+
+    content = json.dumps(export, indent=2)
 
     if file_val:
-
         base_name = file_val.split("/")[-1].rsplit(".", 1)[0]
         filename = f"{base_name}.json"
     elif local_filename:
-
         base_name = local_filename.rsplit(".", 1)[0]
         filename = f"{base_name}.json"
     else:
-
         filename = "annotations.json"
 
     return dcc.send_string(content, filename)
@@ -3739,6 +3782,7 @@ clientside_callback(
     Output("upload-image", "contents", allow_duplicate=True),
     Output("upload-image", "filename", allow_duplicate=True),
     Output("upload-image", "last_modified", allow_duplicate=True),
+    Output("sift-homography-store", "data", allow_duplicate=True),
     Input("upload-image", "contents"),
     Input("file-dropdown", "value"),
     State("upload-image", "filename"),
@@ -3753,8 +3797,8 @@ def set_uploaded_image(contents, dropdown_value, filename, last_modified):
     )
 
     if triggered == "upload-image" and contents is not None:
-
-        return contents, None, filename, None, None, None
+        # New local upload without SIFT — clear homography
+        return contents, None, filename, None, None, None, None
 
     elif triggered == "file-dropdown":
 
@@ -3769,6 +3813,7 @@ def set_uploaded_image(contents, dropdown_value, filename, last_modified):
                 dash.no_update,
             )
 
+        # GitHub dropdown selection — clear homography
         return (
             None,
             dropdown_value,
@@ -3776,9 +3821,10 @@ def set_uploaded_image(contents, dropdown_value, filename, last_modified):
             dash.no_update,
             dash.no_update,
             dash.no_update,
+            None,
         )
 
-    return None, None, None, None, None, None
+    return None, None, None, None, None, None, None
 
 
 @app.callback(
@@ -6206,7 +6252,7 @@ def manage_crop_workflow(
                 True,
             )
 
-        aligned_b64, msg = align_images_sift_simple(ref_b64, target_b64)
+        aligned_b64, msg, M_list = align_images_sift_simple(ref_b64, target_b64)
 
         if aligned_b64:
             preview = html.Div(
@@ -6225,7 +6271,7 @@ def manage_crop_workflow(
                     ),
                 ]
             )
-            return True, preview, aligned_b64, False, False
+            return True, preview, {"image": aligned_b64, "M": M_list}, False, False
         else:
             return (
                 True,
@@ -6242,15 +6288,17 @@ def manage_crop_workflow(
     Output("uploaded-image-store", "data", allow_duplicate=True),
     Output("file-dropdown", "value", allow_duplicate=True),
     Output("crop-modal", "is_open", allow_duplicate=True),
+    Output("sift-homography-store", "data"),
     Input("apply-cropped-img-btn", "n_clicks"),
     State("crop-result-temp-store", "data"),
     prevent_initial_call=True,
 )
-def apply_cropped_image(n_clicks, aligned_b64):
-    if not n_clicks or not aligned_b64:
-        return dash.no_update, dash.no_update, dash.no_update
-
-    return aligned_b64, None, False
+def apply_cropped_image(n_clicks, crop_data):
+    if not n_clicks or not crop_data:
+        return dash.no_update, dash.no_update, dash.no_update, dash.no_update
+    image = crop_data.get("image") if isinstance(crop_data, dict) else crop_data
+    M_list = crop_data.get("M") if isinstance(crop_data, dict) else None
+    return image, None, False, M_list
 
 
 @app.callback(
@@ -6259,9 +6307,10 @@ def apply_cropped_image(n_clicks, aligned_b64):
     State("crop-result-temp-store", "data"),
     prevent_initial_call=True,
 )
-def download_cropped_image_file(n_clicks, aligned_b64):
-    if not n_clicks or not aligned_b64:
+def download_cropped_image_file(n_clicks, crop_data):
+    if not n_clicks or not crop_data:
         return dash.no_update
+    aligned_b64 = crop_data.get("image") if isinstance(crop_data, dict) else crop_data
 
     import datetime
 
