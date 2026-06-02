@@ -962,7 +962,7 @@ def layout_my_dossiers():
         dbc.Container([
             # ── Header ────────────────────────────────────────────────────────
             html.Div([
-                html.H4("My Dossiers", className="mb-0"),
+                html.H4("Image Bank", className="mb-0"),
                 html.Div([
                     dbc.Button(
                         [html.I(className="fas fa-plus me-1"), "Add image"],
@@ -2540,11 +2540,11 @@ def serve_layout(language):
     user = current_user if current_user.is_authenticated else None
     admin_tabs = []
     if user and user.is_admin:
-        admin_tabs = [dcc.Tab(label="⚙️ Admin", value="tab-admin", children=layout_admin())]
+        admin_tabs = [dcc.Tab(label="Admin", value="tab-admin", children=layout_admin())]
 
     dossier_tabs = []
     if user:
-        dossier_tabs = [dcc.Tab(label="📁 My Dossiers", value="tab-dossiers",
+        dossier_tabs = [dcc.Tab(label="Image Bank", value="tab-dossiers",
                                 children=layout_my_dossiers())]
 
     if user:
@@ -2754,7 +2754,7 @@ def serve_layout(language):
                 id="tabs",
                 value="tab-home",
                 children=[
-                    dcc.Tab(label="🏠 Home", value="tab-home", children=layout_home()),
+                    dcc.Tab(label="Home", value="tab-home", children=layout_home()),
                     dcc.Tab(label=_("Segmentation semi-automatique"), value="tab-ml", children=layout_semiauto()),
                     dcc.Tab(label=_("Segmentation manuelle"), value="tab-manuelle", children=layout_manual()),
                     dcc.Tab(label=_("Suivi de patients"), value="tab-patients", children=layout_patients()),
@@ -3270,22 +3270,44 @@ def export_cohort_zip(n, search, tag_filter, eye_filter, ddn_filter):
     if ddn_filter:
         dossiers_meta = [d for d in dossiers_meta if (d.get("subject_ddn") or "").startswith(ddn_filter)]
 
+    import csv as _csv
     buf = io_buffer.BytesIO()
     csv_rows = []
+    language = "fr"
+
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         for meta in dossiers_meta:
             d = get_dossier(current_user.id, meta["id"])
             if not d:
                 continue
+            shapes = d.get("annotations") or []
             safe_name = re.sub(r"[^\w\-.]", "_", d["name"])[:40]
             folder = f"{safe_name}_{d['id'][:8]}"
 
+            # ── Image PNG ────────────────────────────────────────────────────
             img_b64 = d.get("image_b64", "")
-            if img_b64 and "," in img_b64:
-                ext = img_b64.split(";")[0].split("/")[-1]
-                raw = base64.b64decode(img_b64.split(",", 1)[1])
-                zf.writestr(f"{folder}/image.{ext}", raw)
+            pil_img = None
+            if img_b64:
+                try:
+                    pil_img = load_image_any(img_b64)
+                    png_buf = io_buffer.BytesIO()
+                    pil_img.save(png_buf, format="PNG")
+                    zf.writestr(f"{folder}/{safe_name}.png", png_buf.getvalue())
+                except Exception:
+                    pass
 
+            # ── Segmentation mask ─────────────────────────────────────────────
+            if pil_img and shapes:
+                try:
+                    w, h = pil_img.size
+                    color_mask = generate_color_mask((h, w), shapes, language)
+                    ok, mbuf = cv2.imencode(".png", cv2.cvtColor(color_mask, cv2.COLOR_RGB2BGR))
+                    if ok:
+                        zf.writestr(f"{folder}/{safe_name}_mask.png", mbuf.tobytes())
+                except Exception:
+                    pass
+
+            # ── Annotations JSON ──────────────────────────────────────────────
             ann_data = {
                 "dossier_id": d["id"],
                 "name": d["name"],
@@ -3296,9 +3318,24 @@ def export_cohort_zip(n, search, tag_filter, eye_filter, ddn_filter):
                 "date_exam": d.get("date_exam"),
                 "pathology_tags": d.get("pathology_tags"),
                 "notes": d.get("notes"),
-                "annotations": d.get("annotations", []),
+                "annotations": shapes,
             }
-            zf.writestr(f"{folder}/annotations.json", json.dumps(ann_data, indent=2))
+            zf.writestr(f"{folder}/{safe_name}_annotations.json", json.dumps(ann_data, indent=2))
+
+            # ── Metrics XLSX (same as export_all_zip) ─────────────────────────
+            if shapes:
+                try:
+                    df, _ = process_image_analysis_data(shapes, None, img_b64, language, None)
+                    with io_buffer.BytesIO() as xbuf:
+                        with pd.ExcelWriter(xbuf, engine="openpyxl") as writer:
+                            df.to_excel(writer, index=False, sheet_name="Analyse")
+                        zf.writestr(f"{folder}/{safe_name}_analyse.xlsx", xbuf.getvalue())
+                    # Add per-dossier CSV metrics
+                    csv_metrics_buf = io_buffer.StringIO()
+                    df.to_csv(csv_metrics_buf, index=False)
+                    zf.writestr(f"{folder}/{safe_name}_analyse.csv", csv_metrics_buf.getvalue())
+                except Exception:
+                    pass
 
             csv_rows.append({
                 "id": d["id"],
@@ -3309,13 +3346,12 @@ def export_cohort_zip(n, search, tag_filter, eye_filter, ddn_filter):
                 "eye": d.get("eye", ""),
                 "date_exam": d.get("date_exam", ""),
                 "pathology_tags": "|".join(d.get("pathology_tags") or []),
-                "annotation_count": len(d.get("annotations", [])),
+                "annotation_count": len(shapes),
                 "notes": d.get("notes", ""),
             })
 
-        # Write cohort CSV summary
+        # ── Cohort summary CSV ────────────────────────────────────────────────
         if csv_rows:
-            import csv as _csv
             csv_buf = io_buffer.StringIO()
             writer = _csv.DictWriter(csv_buf, fieldnames=list(csv_rows[0].keys()))
             writer.writeheader()
@@ -3323,8 +3359,7 @@ def export_cohort_zip(n, search, tag_filter, eye_filter, ddn_filter):
             zf.writestr("cohort_summary.csv", csv_buf.getvalue())
 
     buf.seek(0)
-    from datetime import datetime as _dt
-    fname = f"cohort_{_dt.now().strftime('%Y%m%d_%H%M%S')}.zip"
+    fname = f"cohort_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
     return dcc.send_bytes(buf.read(), fname)
 
 
@@ -3732,9 +3767,8 @@ def update_shapes_combined(
             return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
 
     # --- 2. CHANGEMENT D'IMAGE (Reset de l'historique) ---
-    if trigger == "file-dropdown":
-        # On vide l'historique car c'est une nouvelle image
-        # Retourne 6 valeurs (la dernière est [])
+    if trigger == "file-dropdown" and file_val is not None:
+        # Only reset when user actively picks a new file, not on programmatic clear
         return [], generate_summary([], language, axial_length), new_upload, dash.no_update, dash.no_update, []
 
     # --- 3. SAUVEGARDE AVANT MODIFICATION ---
