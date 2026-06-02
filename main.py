@@ -1402,6 +1402,146 @@ def serve_layout(language):
             ]
         )
 
+    def layout_home():
+        return html.Div(
+            [
+                html.Div(
+                    [
+                        html.H1(
+                            "FundusTracker",
+                            style={
+                                "fontSize": "3rem",
+                                "fontWeight": "800",
+                                "letterSpacing": "-1px",
+                            },
+                            className="text-center mb-2",
+                        ),
+                        html.P(
+                            "Longitudinal retinal lesion tracking for clinical research",
+                            className="lead text-center text-muted mb-4",
+                        ),
+                        html.Hr(className="my-3"),
+                    ],
+                    className="pt-4 pb-2",
+                ),
+                dbc.Row(
+                    [
+                        dbc.Col(
+                            dbc.Card(
+                                dbc.CardBody(
+                                    [
+                                        html.Div(
+                                            html.I(className="fas fa-magic fa-3x text-primary"),
+                                            className="text-center mb-3",
+                                        ),
+                                        html.H5(
+                                            "Semi-automatic Segmentation",
+                                            className="card-title text-center fw-bold",
+                                        ),
+                                        html.P(
+                                            "Draw freehand strokes to train a Random Forest classifier "
+                                            "and automatically segment lesions in real-time.",
+                                            className="card-text text-muted text-center",
+                                            style={"fontSize": "0.9rem"},
+                                        ),
+                                        dbc.Button(
+                                            [html.I(className="fas fa-arrow-right me-2"), "Get Started"],
+                                            id="home-btn-ml",
+                                            color="primary",
+                                            className="w-100 mt-3",
+                                        ),
+                                    ]
+                                ),
+                                className="h-100 shadow-sm border-0",
+                                style={"borderTop": "4px solid #0d6efd"},
+                            ),
+                            width=4,
+                        ),
+                        dbc.Col(
+                            dbc.Card(
+                                dbc.CardBody(
+                                    [
+                                        html.Div(
+                                            html.I(className="fas fa-pencil-alt fa-3x text-success"),
+                                            className="text-center mb-3",
+                                        ),
+                                        html.H5(
+                                            "Manual Annotation",
+                                            className="card-title text-center fw-bold",
+                                        ),
+                                        html.P(
+                                            "Draw and classify retinal zones manually. "
+                                            "Export to Excel or JSON for further analysis.",
+                                            className="card-text text-muted text-center",
+                                            style={"fontSize": "0.9rem"},
+                                        ),
+                                        dbc.Button(
+                                            [html.I(className="fas fa-arrow-right me-2"), "Get Started"],
+                                            id="home-btn-manual",
+                                            color="success",
+                                            className="w-100 mt-3",
+                                        ),
+                                    ]
+                                ),
+                                className="h-100 shadow-sm border-0",
+                                style={"borderTop": "4px solid #198754"},
+                            ),
+                            width=4,
+                        ),
+                        dbc.Col(
+                            dbc.Card(
+                                dbc.CardBody(
+                                    [
+                                        html.Div(
+                                            html.I(className="fas fa-user-md fa-3x text-info"),
+                                            className="text-center mb-3",
+                                        ),
+                                        html.H5(
+                                            "Patient Follow-up",
+                                            className="card-title text-center fw-bold",
+                                        ),
+                                        html.P(
+                                            "Create patient records, link examinations over time "
+                                            "and visualize longitudinal lesion progression.",
+                                            className="card-text text-muted text-center",
+                                            style={"fontSize": "0.9rem"},
+                                        ),
+                                        dbc.Button(
+                                            [html.I(className="fas fa-arrow-right me-2"), "Get Started"],
+                                            id="home-btn-patients",
+                                            color="info",
+                                            className="w-100 mt-3",
+                                        ),
+                                    ]
+                                ),
+                                className="h-100 shadow-sm border-0",
+                                style={"borderTop": "4px solid #0dcaf0"},
+                            ),
+                            width=4,
+                        ),
+                    ],
+                    className="g-4 px-2",
+                ),
+                dbc.Row(
+                    dbc.Col(
+                        dbc.Alert(
+                            [
+                                html.I(className="fas fa-info-circle me-2"),
+                                "Images are processed ",
+                                html.Strong("locally"),
+                                " — no health data is transmitted to external servers.",
+                            ],
+                            color="light",
+                            className="text-center mt-4 border",
+                            style={"fontSize": "0.85rem"},
+                        ),
+                        width={"size": 8, "offset": 2},
+                    )
+                ),
+            ],
+            className="container py-3",
+        )
+
     def layout_semiauto():
         return html.Div(
             [
@@ -2011,8 +2151,13 @@ def serve_layout(language):
             ),
             dcc.Tabs(
                 id="tabs",
-                value="tab-ml",
+                value="tab-home",
                 children=[
+                    dcc.Tab(
+                        label="🏠 Home",
+                        value="tab-home",
+                        children=layout_home(),
+                    ),
                     dcc.Tab(
                         label=_("Segmentation semi-automatique"),
                         value="tab-ml",
@@ -2938,6 +3083,24 @@ def ml_run_segmentation(n_seg, n_reset, file_val, image_store, squiggles, langua
 )
 def update_tabs(tab_value):
     return tab_value
+
+
+@app.callback(
+    Output("tabs", "value", allow_duplicate=True),
+    Input("home-btn-ml", "n_clicks"),
+    Input("home-btn-manual", "n_clicks"),
+    Input("home-btn-patients", "n_clicks"),
+    prevent_initial_call=True,
+)
+def home_navigate(ml, manual, patients):
+    triggered = ctx.triggered_id
+    if triggered == "home-btn-ml":
+        return "tab-ml"
+    if triggered == "home-btn-manual":
+        return "tab-manuelle"
+    if triggered == "home-btn-patients":
+        return "tab-patients"
+    return dash.no_update
 
 
 @app.callback(
