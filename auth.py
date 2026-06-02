@@ -10,7 +10,11 @@ from flask_login import UserMixin
 from werkzeug.security import check_password_hash, generate_password_hash
 from PIL import Image as _PILImage
 
-DB_PATH = "fundus_users.db"
+# All persistent state lives under DATA_DIR so a single mounted volume
+# (-v host_dir:/app/userdata) survives container rebuilds/redeploys.
+DATA_DIR = os.environ.get("FUNDUS_DATA_DIR", "userdata")
+os.makedirs(DATA_DIR, exist_ok=True)
+DB_PATH = os.path.join(DATA_DIR, "fundus_users.db")
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 json_load = _json.load
@@ -117,7 +121,7 @@ def get_all_users():
 
 # ── File-based storage helpers ─────────────────────────────────────────────────
 def get_userdata_dir(user_id):
-    path = os.path.join("userdata", str(user_id))
+    path = os.path.join(DATA_DIR, str(user_id))
     os.makedirs(path, exist_ok=True)
     return path
 
@@ -136,11 +140,11 @@ def save_patient_data(user_id, data):
         json_dump(data, f)
 
 
-_GLOBAL_PATIENTS_PATH = os.path.join("userdata", "patients.json")
+_GLOBAL_PATIENTS_PATH = os.path.join(DATA_DIR, "patients.json")
 
 
 def load_global_patient_data():
-    os.makedirs("userdata", exist_ok=True)
+    os.makedirs(DATA_DIR, exist_ok=True)
     if os.path.exists(_GLOBAL_PATIENTS_PATH):
         with open(_GLOBAL_PATIENTS_PATH) as f:
             return json_load(f)
@@ -148,7 +152,7 @@ def load_global_patient_data():
 
 
 def save_global_patient_data(data):
-    os.makedirs("userdata", exist_ok=True)
+    os.makedirs(DATA_DIR, exist_ok=True)
     with open(_GLOBAL_PATIENTS_PATH, "w") as f:
         json_dump(data, f)
 
@@ -156,7 +160,7 @@ def save_global_patient_data(data):
 def count_all_patients():
     """Total number of patients across every user's store (admin view only)."""
     total = 0
-    base = "userdata"
+    base = DATA_DIR
     if not os.path.isdir(base):
         return 0
     for entry in os.listdir(base):

@@ -28,6 +28,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 3. On copie le reste de ton code (qui change souvent sur tes petites MAJ)
 COPY . ./
 
+# Toutes les données persistantes (base SQLite des comptes, dossiers/patients,
+# clé secrète des sessions) vivent ici. Monter un volume hôte sur ce chemin :
+#   docker run -v /opt/fundustracker_data:/app/userdata ...
+VOLUME ["/app/userdata"]
+
 EXPOSE 8080
 
 CMD ["python", "main.py"]

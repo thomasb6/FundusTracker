@@ -15,6 +15,7 @@ from auth import (
     save_dossier, list_dossiers, get_dossier, delete_dossier, update_dossier_meta,
     get_recent_patients, list_dossiers_for_patient,
     count_all_patients, migrate_global_patient_data_to_admin,
+    DATA_DIR,
 )
 from PIL import Image
 from dash import Dash, html, dcc, Input, Output, State, ctx, Patch
@@ -882,7 +883,7 @@ app = Dash(
 server = app.server
 
 # ── Auth setup ────────────────────────────────────────────────────────────────
-_secret_key_file = "secret_key.txt"
+_secret_key_file = os.path.join(DATA_DIR, "secret_key.txt")
 _existing_key = ""
 if os.path.exists(_secret_key_file):
     with open(_secret_key_file) as _f:
