@@ -153,10 +153,58 @@ def save_global_patient_data(data):
         json_dump(data, f)
 
 
+def count_all_patients():
+    """Total number of patients across every user's store (admin view only)."""
+    total = 0
+    base = "userdata"
+    if not os.path.isdir(base):
+        return 0
+    for entry in os.listdir(base):
+        ppath = os.path.join(base, entry, "patients.json")
+        if os.path.isfile(ppath):
+            try:
+                with open(ppath) as f:
+                    total += len(json_load(f))
+            except Exception:
+                continue
+    return total
+
+
+def migrate_global_patient_data_to_admin():
+    """One-time migration of the legacy shared store into the first admin account.
+
+    Before isolation, all patients lived in a single userdata/patients.json shared
+    by every account. Move that data into the first admin user's per-user store so
+    nothing is lost, and rename the legacy file to .bak so this runs only once.
+    """
+    if not os.path.exists(_GLOBAL_PATIENTS_PATH):
+        return
+    try:
+        with open(_GLOBAL_PATIENTS_PATH) as f:
+            legacy = json_load(f)
+    except Exception:
+        return
+    if not legacy:
+        os.replace(_GLOBAL_PATIENTS_PATH, _GLOBAL_PATIENTS_PATH + ".bak")
+        return
+    with _get_db() as conn:
+        row = conn.execute(
+            "SELECT id FROM users WHERE is_admin=1 ORDER BY id LIMIT 1"
+        ).fetchone()
+    if not row:
+        return  # no admin yet; retry on a later startup
+    admin_id = row["id"]
+    dest = os.path.join(get_userdata_dir(admin_id), "patients.json")
+    if os.path.exists(dest):
+        return  # admin already has a store; don't clobber it
+    save_patient_data(admin_id, legacy)
+    os.replace(_GLOBAL_PATIENTS_PATH, _GLOBAL_PATIENTS_PATH + ".bak")
+
+
 # ── Patient analytics helpers ──────────────────────────────────────────────────
-def get_recent_patients(n=5):
-    """Return up to n recently modified patients from the global patient store."""
-    patients = load_global_patient_data()
+def get_recent_patients(user_id, n=5):
+    """Return up to n recently modified patients from this user's patient store."""
+    patients = load_patient_data(user_id)
     summaries = []
     for patient_id, records in patients.items():
         if not records:
@@ -178,8 +226,8 @@ def get_recent_patients(n=5):
 
 
 def get_user_stats(user_id):
-    """Return aggregate stats: global patient counts + per-user dossier counts."""
-    patients = load_global_patient_data()
+    """Return aggregate stats: this user's patient counts + dossier counts."""
+    patients = load_patient_data(user_id)
     n_patients = len(patients)
     n_exams = sum(len(v) for v in patients.values())
     n_annotations = sum(

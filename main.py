@@ -14,7 +14,7 @@ from auth import (
     get_userdata_dir, load_patient_data, save_patient_data,
     save_dossier, list_dossiers, get_dossier, delete_dossier, update_dossier_meta,
     get_recent_patients, list_dossiers_for_patient,
-    load_global_patient_data, save_global_patient_data,
+    count_all_patients, migrate_global_patient_data_to_admin,
 )
 from PIL import Image
 from dash import Dash, html, dcc, Input, Output, State, ctx, Patch
@@ -904,6 +904,28 @@ def load_user(user_id):
     return get_user_by_id(user_id)
 
 init_db()
+migrate_global_patient_data_to_admin()
+
+
+def load_current_patient_data():
+    """Patient store scoped to the logged-in user; empty dict if anonymous."""
+    try:
+        if current_user.is_authenticated:
+            return load_patient_data(current_user.id)
+    except Exception:
+        pass
+    return {}
+
+
+def save_current_patient_data(data):
+    """Persist the patient store for the logged-in user. No-op if anonymous."""
+    try:
+        if current_user.is_authenticated:
+            save_patient_data(current_user.id, data)
+            return True
+    except Exception:
+        pass
+    return False
 # ─────────────────────────────────────────────────────────────────────────────
 
 filenames = get_filenames()
@@ -954,7 +976,7 @@ def layout_my_dossiers():
     try:
         _patient_opts = [
             {"label": pid.replace("_", " "), "value": pid}
-            for pid in sorted(load_global_patient_data().keys())
+            for pid in sorted(load_current_patient_data().keys())
         ]
     except Exception:
         _patient_opts = []
@@ -1287,8 +1309,7 @@ def _dossier_grid_with_stats(dossiers, view_mode="grid"):
 def layout_admin():
     from auth import _load_index as _auth_load_index
     users = get_all_users()
-    global_patients = load_global_patient_data()
-    n_global_patients = len(global_patients)
+    n_global_patients = count_all_patients()
     rows = []
     for u in users:
         try:
@@ -1322,7 +1343,7 @@ def layout_admin():
             html.Div([
                 html.H4("User Management", className="mb-0"),
                 html.Small(
-                    f"{n_global_patients} patient(s) in shared database",
+                    f"{n_global_patients} patient(s) across all users",
                     className="text-muted",
                 ),
             ], className="d-flex justify-content-between align-items-center mt-3 mb-3"),
@@ -2639,7 +2660,7 @@ def serve_layout(language):
 
     if user:
         try:
-            _recent = get_recent_patients(n=5)
+            _recent = get_recent_patients(current_user.id, n=5)
         except Exception:
             _recent = []
 
@@ -2914,7 +2935,7 @@ def serve_layout(language):
             dcc.Store(id="tab-value-store", data="tab-manuelle"),
             dcc.Store(id="trigger-print-store", data=False),
             dcc.Store(id="uploaded-image-store", data=None),
-            dcc.Store(id="longitudinal-series-store", data=load_global_patient_data()),
+            dcc.Store(id="longitudinal-series-store", data=load_current_patient_data()),
             dcc.Store(id="longitudinal-table-store", data=[]),
             dcc.Store(id="longitudinal-active-patient-store", data=None),
             dcc.Store(id="matching-results-store"),
@@ -3005,7 +3026,7 @@ def sync_stores_on_auth_change(user_data):
     return dash.no_update, dash.no_update, dash.no_update
 
 
-# ── Auto-save patient data (no auth required) ─────────────────────────────────
+# ── Auto-save patient data (per-user; requires authentication) ────────────────
 @app.callback(
     Output("patient-autosave-store", "data"),
     Output("last-saved-store", "data"),
@@ -3015,7 +3036,9 @@ def sync_stores_on_auth_change(user_data):
 def auto_save_patients(series_data):
     if series_data is None:
         return dash.no_update, dash.no_update
-    save_global_patient_data(series_data)
+    # Only persist for an authenticated user, into their own store.
+    if not save_current_patient_data(series_data):
+        return dash.no_update, dash.no_update
     ts = datetime.now().strftime("%H:%M:%S")
     return dash.no_update, ts
 
