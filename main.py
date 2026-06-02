@@ -56,7 +56,7 @@ import pandas as pd
 
 
 def generate_ellipse_path(cx, cy, rx, ry, n_points=32):
-    """Génère une chaîne de caractères 'path' SVG pour une ellipse décomposée en points"""
+    """Génère une chaîne de caractères 'path' SVG pour une ellipse décomposée en points."""
     import numpy as np
     t = np.linspace(0, 2 * np.pi, n_points, endpoint=False)
     x = cx + rx * np.cos(t)
