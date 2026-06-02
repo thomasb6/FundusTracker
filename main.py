@@ -959,14 +959,11 @@ def serve_layout(language):
                                     style={"zIndex": "1000", "position": "relative"}
                                     # Pour être sûr qu'il est cliquable
                                 ),
-                                dcc.Loading(
-                                    dcc.Graph(
-                                        id="fig-image",
-                                        config=config_graph,
-                                        style={"width": "100%", "height": "auto"},
-                                        className="graph-figure",
-                                    ),
-                                    type="circle",
+                                dcc.Graph(
+                                    id="fig-image",
+                                    config=config_graph,
+                                    style={"width": "100%", "height": "auto"},
+                                    className="graph-figure",
                                 ),
                                 html.Div(id="output-area", className="output-area"),
                             ],
@@ -1438,17 +1435,14 @@ def serve_layout(language):
                 ),
                 html.Div(
                     [
-                        dcc.Loading(
-                            dcc.Graph(
-                                id="ml-image-graph",
-                                config={
-                                    "modeBarButtonsToAdd": ["drawopenpath", "eraseshape"],
-                                    "displaylogo": False,
-                                },
-                                style={"width": "100%", "height": "auto"},
-                                className="graph-figure",
-                            ),
-                            type="circle",
+                        dcc.Graph(
+                            id="ml-image-graph",
+                            config={
+                                "modeBarButtonsToAdd": ["drawopenpath", "eraseshape"],
+                                "displaylogo": False,
+                            },
+                            style={"width": "100%", "height": "auto"},
+                            className="graph-figure",
                         ),
                         dcc.Loading(
                             html.Div(id="ml-segment-result"),
