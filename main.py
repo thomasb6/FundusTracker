@@ -1017,6 +1017,20 @@ def layout_my_dossiers():
                         options=[{"label": t, "value": t} for t in PRESET_TAGS],
                         multi=True, placeholder="Select or type…", className="mb-2",
                     ),
+                    dbc.Row([
+                        dbc.Col([
+                            dbc.Label("Nom"),
+                            dbc.Input(id="qa-nom", placeholder="NA", size="sm"),
+                        ], width=4),
+                        dbc.Col([
+                            dbc.Label("Prénom"),
+                            dbc.Input(id="qa-prenom", placeholder="NA", size="sm"),
+                        ], width=4),
+                        dbc.Col([
+                            dbc.Label("DDN"),
+                            dbc.Input(id="qa-ddn", type="date", size="sm"),
+                        ], width=4),
+                    ], className="mb-2"),
                     dbc.Label("Notes"),
                     dbc.Textarea(id="qa-notes", rows=2, placeholder="Optional notes…"),
                 ]),
@@ -1030,7 +1044,7 @@ def layout_my_dossiers():
             # ── Filters ───────────────────────────────────────────────────────
             dbc.Row([
                 dbc.Col(
-                    dbc.Input(id="dossier-search", placeholder="🔍  Search by name or patient…",
+                    dbc.Input(id="dossier-search", placeholder="🔍  Search name / nom / prénom…",
                               debounce=True, size="sm"),
                     width=3,
                 ),
@@ -1045,21 +1059,17 @@ def layout_my_dossiers():
                 ),
                 dbc.Col(
                     dcc.Dropdown(
-                        id="dossier-filter-patient",
-                        options=_patient_opts,
-                        placeholder="All patients",
-                        clearable=True,
-                        style={"fontSize": "0.85rem"},
-                    ), width=4,
-                ),
-                dbc.Col(
-                    dcc.Dropdown(
                         id="dossier-filter-eye",
                         options=[{"label": e, "value": e} for e in ["OD", "OG", "NA"]],
                         placeholder="All eyes",
                         clearable=True,
                         style={"fontSize": "0.85rem"},
                     ), width=2,
+                ),
+                dbc.Col(
+                    dbc.Input(id="dossier-filter-ddn", placeholder="DDN (YYYY-MM-DD)",
+                              debounce=True, size="sm"),
+                    width=2,
                 ),
             ], className="mb-3 g-2"),
 
@@ -1105,25 +1115,15 @@ def _dossier_cards(dossiers):
         ann = d.get("annotation_count", 0)
         date_str = d.get("date_exam") or d.get("modified_at", "")[:10]
 
-        patient_badge = None
+        subject_parts = [d.get("subject_nom"), d.get("subject_prenom"), d.get("subject_ddn")]
+        subject_label = "  ".join(p for p in subject_parts if p)
+        subject_badge = dbc.Badge(
+            [html.I(className="fas fa-user me-1"), subject_label],
+            color="primary", className="me-1 mb-1",
+            style={"fontSize": "0.68rem"},
+            title=subject_label,
+        ) if subject_label else None
         go_to_patient_btn = None
-        if d.get("patient_name") or d.get("patient_id"):
-            pname = d.get("patient_name") or (d["patient_id"].replace("_", " ") if d.get("patient_id") else "")
-            patient_badge = dbc.Badge(
-                [html.I(className="fas fa-user me-1"), pname],
-                color="primary", className="me-1 mb-1",
-                style={"fontSize": "0.68rem", "maxWidth": "120px",
-                       "overflow": "hidden", "textOverflow": "ellipsis",
-                       "display": "inline-block", "verticalAlign": "middle"},
-                title=pname,
-            )
-            go_to_patient_btn = dbc.Button(
-                [html.I(className="fas fa-user-injured me-1"), "Patient"],
-                id={"type": "goto-patient-from-dossier-btn", "index": d["patient_id"]},
-                color="primary", size="sm", outline=True,
-                className="me-1 mt-2", title=f"Go to patient: {pname}",
-                style={"fontSize": "0.75rem"},
-            )
 
         card = dbc.Col(
             dbc.Card([
@@ -1136,7 +1136,7 @@ def _dossier_cards(dossiers):
                                "textOverflow": "ellipsis", "whiteSpace": "nowrap"},
                     ),
                     html.Div(
-                        ([patient_badge] if patient_badge else []) + [eye_badge] + tag_badges,
+                        ([subject_badge] if subject_badge else []) + [eye_badge] + tag_badges,
                         className="mb-1",
                     ),
                     html.Small(
@@ -1151,7 +1151,6 @@ def _dossier_cards(dossiers):
                             color="primary", size="sm", outline=True,
                             className="me-1 mt-2",
                         ),
-                        *(([go_to_patient_btn]) if go_to_patient_btn else []),
                         dbc.Button(
                             html.I(className="fas fa-pen"),
                             id={"type": "edit-dossier-btn", "index": d["id"]},
@@ -2110,40 +2109,38 @@ def serve_layout(language):
                 html.Div(
                     [
                         html.H4(_("Gestion du Patient")),
-                        html.Small(
-                            _("Tous les champs sont facultatifs (NA par défaut)."),
-                            className="text-muted d-block mb-2",
-                        ),
+                        dbc.Label(_("Saisir un nouveau patient :")),
                         dcc.Input(
                             id="patient-nom-input",
-                            placeholder=_("Nom (optionnel)"),
+                            placeholder=_("Nom"),
                             type="text",
                             className="mb-2",
                             style={"width": "100%"},
                         ),
                         dcc.Input(
                             id="patient-prenom-input",
-                            placeholder=_("Prénom (optionnel)"),
+                            placeholder=_("Prénom"),
                             type="text",
                             className="mb-2",
                             style={"width": "100%"},
                         ),
+                        dbc.Label(_("Date de naissance")),
                         dcc.Input(
                             id="patient-ddn-input",
-                            placeholder=_("Date de naissance (optionnel)"),
+                            placeholder=_("Date de naissance"),
                             type="date",
                             className="mb-2",
                             style={"width": "100%"},
                         ),
+                        dbc.Label(_("Sexe")),
                         dcc.Dropdown(
                             id="patient-sexe-input",
                             options=[
-                                {"label": _("NA"), "value": "NA"},
+                                {"label": _("Non spécifié"), "value": "Non spécifié"},
                                 {"label": _("Homme"), "value": "Homme"},
                                 {"label": _("Femme"), "value": "Femme"},
                             ],
-                            value="NA",
-                            placeholder=_("Sexe (optionnel)"),
+                            value="Non spécifié",
                             className="mb-2",
                             style={"width": "100%"},
                         ),
@@ -2650,6 +2647,20 @@ def serve_layout(language):
                 options=[{"label": t, "value": t} for t in PRESET_TAGS],
                 multi=True, placeholder="Select or type…", className="mb-2",
             ),
+            dbc.Row([
+                dbc.Col([
+                    dbc.Label("Nom"),
+                    dbc.Input(id="ds-nom", placeholder="NA", size="sm"),
+                ], width=4),
+                dbc.Col([
+                    dbc.Label("Prénom"),
+                    dbc.Input(id="ds-prenom", placeholder="NA", size="sm"),
+                ], width=4),
+                dbc.Col([
+                    dbc.Label("DDN"),
+                    dbc.Input(id="ds-ddn", type="date", size="sm"),
+                ], width=4),
+            ], className="mb-2"),
             dbc.Label("Notes"),
             dbc.Textarea(id="ds-notes", rows=2, placeholder="Optional notes…"),
         ]),
@@ -3046,6 +3057,9 @@ def update_dossier_save_section(user_data, active):
     Output("ds-tags", "value"),
     Output("ds-notes", "value"),
     Output("ds-editing-id", "data"),
+    Output("ds-nom", "value"),
+    Output("ds-prenom", "value"),
+    Output("ds-ddn", "value"),
     Input("save-as-dossier-btn", "n_clicks"),
     Input({"type": "edit-dossier-btn", "index": ALL}, "n_clicks"),
     Input("ds-cancel", "n_clicks"),
@@ -3055,22 +3069,23 @@ def update_dossier_save_section(user_data, active):
 )
 def open_dossier_modal(save_n, edit_clicks, cancel_n, local_fn, file_val):
     if not ctx.triggered or not ctx.triggered[0].get("value"):
-        return (dash.no_update,) * 7
+        return (dash.no_update,) * 10
     triggered = ctx.triggered_id
     if triggered == "ds-cancel":
-        return False, *([dash.no_update] * 6)
+        return False, *([dash.no_update] * 9)
 
     today = datetime.now().strftime("%Y-%m-%d")
 
     if isinstance(triggered, dict) and triggered.get("type") == "edit-dossier-btn":
         if not current_user.is_authenticated or not any(edit_clicks):
-            return dash.no_update, *([dash.no_update] * 6)
+            return dash.no_update, *([dash.no_update] * 9)
         dossier_id = triggered["index"]
         d = get_dossier(current_user.id, dossier_id)
         if not d:
-            return dash.no_update, *([dash.no_update] * 6)
+            return dash.no_update, *([dash.no_update] * 9)
         return (True, d["name"], d.get("eye", "NA"), d.get("date_exam", today),
-                d.get("pathology_tags", []), d.get("notes", ""), dossier_id)
+                d.get("pathology_tags", []), d.get("notes", ""), dossier_id,
+                d.get("subject_nom") or "", d.get("subject_prenom") or "", d.get("subject_ddn") or "")
 
     default_name = ""
     if local_fn:
@@ -3078,7 +3093,7 @@ def open_dossier_modal(save_n, edit_clicks, cancel_n, local_fn, file_val):
     elif file_val:
         default_name = file_val.split("/")[-1].rsplit(".", 1)[0]
 
-    return True, default_name, "NA", today, [], "", None
+    return True, default_name, "NA", today, [], "", None, "", "", ""
 
 
 # ── Save dossier (create or update metadata) ──────────────────────────────────
@@ -3093,6 +3108,9 @@ def open_dossier_modal(save_n, edit_clicks, cancel_n, local_fn, file_val):
     State("ds-tags", "value"),
     State("ds-notes", "value"),
     State("ds-editing-id", "data"),
+    State("ds-nom", "value"),
+    State("ds-prenom", "value"),
+    State("ds-ddn", "value"),
     State("stored-shapes", "data"),
     State("uploaded-image-store", "data"),
     State("file-dropdown", "value"),
@@ -3101,7 +3119,7 @@ def open_dossier_modal(save_n, edit_clicks, cancel_n, local_fn, file_val):
     State("dossiers-refresh-trigger", "data"),
     prevent_initial_call=True,
 )
-def do_save_dossier(n, name, eye, date_exam, tags, notes, editing_id,
+def do_save_dossier(n, name, eye, date_exam, tags, notes, editing_id, nom, prenom, ddn,
                     shapes, uploaded_img, file_val, local_fn, M_list, trigger_val):
     if not n or not current_user.is_authenticated:
         return dash.no_update, dash.no_update, dash.no_update
@@ -3117,11 +3135,15 @@ def do_save_dossier(n, name, eye, date_exam, tags, notes, editing_id,
 
     image_filename = local_fn or (file_val.split("/")[-1] if file_val else "")
     tags = tags or []
+    nom_v = (nom or "").strip() or None
+    prenom_v = (prenom or "").strip() or None
+    ddn_v = (ddn or "").strip() or None
 
     if editing_id:
         update_dossier_meta(current_user.id, editing_id,
                             name=name, eye=eye, date_exam=date_exam,
-                            pathology_tags=tags, notes=notes)
+                            pathology_tags=tags, notes=notes,
+                            subject_nom=nom_v, subject_prenom=prenom_v, subject_ddn=ddn_v)
         dossier_id = editing_id
     else:
         dossier_id = save_dossier(
@@ -3131,6 +3153,7 @@ def do_save_dossier(n, name, eye, date_exam, tags, notes, editing_id,
             image_b64=image_b64, image_filename=image_filename,
             annotations=shapes or [],
             sift_applied=bool(M_list), sift_homography=M_list,
+            subject_nom=nom_v, subject_prenom=prenom_v, subject_ddn=ddn_v,
         )
 
     return False, {"id": dossier_id, "name": name}, (trigger_val or 0) + 1
@@ -3197,41 +3220,27 @@ def navigate_to_recent_patient(n_clicks_list):
     Input("dossier-search", "value"),
     Input("dossier-filter-tag", "value"),
     Input("dossier-filter-eye", "value"),
-    Input("dossier-filter-patient", "value"),
+    Input("dossier-filter-ddn", "value"),
     prevent_initial_call=True,
 )
-def refresh_dossiers_grid(trigger, active_tab, search, tag_filter, eye_filter, patient_filter):
+def refresh_dossiers_grid(trigger, active_tab, search, tag_filter, eye_filter, ddn_filter):
     if active_tab != "tab-dossiers" or not current_user.is_authenticated:
         return dash.no_update
     dossiers = list_dossiers(current_user.id)
     if search:
         q = search.lower()
-        dossiers = [d for d in dossiers if q in d["name"].lower()
-                    or q in (d.get("patient_name") or "").lower()]
+        dossiers = [d for d in dossiers if
+                    q in d["name"].lower()
+                    or q in (d.get("subject_nom") or "").lower()
+                    or q in (d.get("subject_prenom") or "").lower()]
     if tag_filter:
         dossiers = [d for d in dossiers
                     if any(t in (d.get("pathology_tags") or []) for t in tag_filter)]
     if eye_filter:
         dossiers = [d for d in dossiers if d.get("eye") == eye_filter]
-    if patient_filter:
-        dossiers = [d for d in dossiers if d.get("patient_id") == patient_filter]
+    if ddn_filter:
+        dossiers = [d for d in dossiers if (d.get("subject_ddn") or "").startswith(ddn_filter)]
     return _dossier_grid_with_stats(dossiers, current_user.id)
-
-
-# ── Go to patient from dossier card ──────────────────────────────────────────
-@app.callback(
-    Output("longitudinal-active-patient-store", "data", allow_duplicate=True),
-    Output("tabs", "value", allow_duplicate=True),
-    Input({"type": "goto-patient-from-dossier-btn", "index": ALL}, "n_clicks"),
-    prevent_initial_call=True,
-)
-def goto_patient_from_dossier(n_clicks_list):
-    if not any(n_clicks_list):
-        return dash.no_update, dash.no_update
-    triggered = ctx.triggered_id
-    if not triggered:
-        return dash.no_update, dash.no_update
-    return triggered["index"], "tab-patients"
 
 
 # ── Export cohort as ZIP ──────────────────────────────────────────────────────
@@ -3241,24 +3250,25 @@ def goto_patient_from_dossier(n_clicks_list):
     State("dossier-search", "value"),
     State("dossier-filter-tag", "value"),
     State("dossier-filter-eye", "value"),
-    State("dossier-filter-patient", "value"),
+    State("dossier-filter-ddn", "value"),
     prevent_initial_call=True,
 )
-def export_cohort_zip(n, search, tag_filter, eye_filter, patient_filter):
+def export_cohort_zip(n, search, tag_filter, eye_filter, ddn_filter):
     if not n or not current_user.is_authenticated:
         return dash.no_update
     dossiers_meta = list_dossiers(current_user.id)
     if search:
         q = search.lower()
         dossiers_meta = [d for d in dossiers_meta if q in d["name"].lower()
-                         or q in (d.get("patient_name") or "").lower()]
+                         or q in (d.get("subject_nom") or "").lower()
+                         or q in (d.get("subject_prenom") or "").lower()]
     if tag_filter:
         dossiers_meta = [d for d in dossiers_meta
                          if any(t in (d.get("pathology_tags") or []) for t in tag_filter)]
     if eye_filter:
         dossiers_meta = [d for d in dossiers_meta if d.get("eye") == eye_filter]
-    if patient_filter:
-        dossiers_meta = [d for d in dossiers_meta if d.get("patient_id") == patient_filter]
+    if ddn_filter:
+        dossiers_meta = [d for d in dossiers_meta if (d.get("subject_ddn") or "").startswith(ddn_filter)]
 
     buf = io_buffer.BytesIO()
     csv_rows = []
@@ -3270,19 +3280,18 @@ def export_cohort_zip(n, search, tag_filter, eye_filter, patient_filter):
             safe_name = re.sub(r"[^\w\-.]", "_", d["name"])[:40]
             folder = f"{safe_name}_{d['id'][:8]}"
 
-            # Save image
             img_b64 = d.get("image_b64", "")
             if img_b64 and "," in img_b64:
                 ext = img_b64.split(";")[0].split("/")[-1]
                 raw = base64.b64decode(img_b64.split(",", 1)[1])
                 zf.writestr(f"{folder}/image.{ext}", raw)
 
-            # Save annotations JSON
             ann_data = {
                 "dossier_id": d["id"],
                 "name": d["name"],
-                "patient_id": d.get("patient_id"),
-                "patient_name": d.get("patient_name"),
+                "subject_nom": d.get("subject_nom"),
+                "subject_prenom": d.get("subject_prenom"),
+                "subject_ddn": d.get("subject_ddn"),
                 "eye": d.get("eye"),
                 "date_exam": d.get("date_exam"),
                 "pathology_tags": d.get("pathology_tags"),
@@ -3294,8 +3303,9 @@ def export_cohort_zip(n, search, tag_filter, eye_filter, patient_filter):
             csv_rows.append({
                 "id": d["id"],
                 "name": d["name"],
-                "patient_id": d.get("patient_id", ""),
-                "patient_name": d.get("patient_name", ""),
+                "nom": d.get("subject_nom", ""),
+                "prenom": d.get("subject_prenom", ""),
+                "ddn": d.get("subject_ddn", ""),
                 "eye": d.get("eye", ""),
                 "date_exam": d.get("date_exam", ""),
                 "pathology_tags": "|".join(d.get("pathology_tags") or []),
@@ -3369,13 +3379,16 @@ def preview_quick_add(img_data):
     State("qa-eye", "value"),
     State("qa-date", "value"),
     State("qa-tags", "value"),
+    State("qa-nom", "value"),
+    State("qa-prenom", "value"),
+    State("qa-ddn", "value"),
     State("qa-notes", "value"),
     State("quick-add-image-store", "data"),
     State("quick-add-upload", "filename"),
     State("dossiers-refresh-trigger", "data"),
     prevent_initial_call=True,
 )
-def save_quick_add_dossier(n, name, eye, date_exam, tags, notes, img_data, filename, trigger_val):
+def save_quick_add_dossier(n, name, eye, date_exam, tags, nom, prenom, ddn, notes, img_data, filename, trigger_val):
     if not n or not current_user.is_authenticated or not name:
         return dash.no_update, dash.no_update
     save_dossier(
@@ -3385,6 +3398,9 @@ def save_quick_add_dossier(n, name, eye, date_exam, tags, notes, img_data, filen
         image_b64=img_data or "",
         image_filename=filename or "",
         annotations=[],
+        subject_nom=(nom or "").strip() or None,
+        subject_prenom=(prenom or "").strip() or None,
+        subject_ddn=(ddn or "").strip() or None,
     )
     return False, (trigger_val or 0) + 1
 
@@ -5077,25 +5093,24 @@ def manage_patient_selection(
     header = dash.no_update
 
     if triggered_id == "create-patient-btn":
-        nom_v = (nom or "").strip() or "NA"
-        prenom_v = (prenom or "").strip() or "NA"
-        ddn_v = (ddn or "").strip() or "NA"
-        sexe_v = (sexe or "").strip() or "NA"
-        base_id = f"{nom_v}_{prenom_v}_{ddn_v}_{sexe_v}"
-        # If fully anonymous, add a short suffix to keep entries distinct
-        if base_id == "NA_NA_NA_NA":
-            base_id = f"NA_NA_NA_{uuid.uuid4().hex[:6]}"
-        patient_id = base_id
-        if patient_id not in all_series:
-            all_series[patient_id] = []
-            options.append(
-                {"label": patient_id.replace("_", " "), "value": patient_id}
-            )
-            feedback = dbc.Alert(_("Patient créé."), color="success", duration=2000)
-            return patient_id, options, patient_id, feedback, all_series, header
+        if all([nom, prenom, ddn, sexe]):
+            patient_id = f"{nom}_{prenom}_{ddn}_{sexe}".strip()
+            if patient_id not in all_series:
+                all_series[patient_id] = []
+                options.append(
+                    {"label": patient_id.replace("_", " "), "value": patient_id}
+                )
+                feedback = dbc.Alert(_("Patient créé."), color="success", duration=2000)
+                return patient_id, options, patient_id, feedback, all_series, header
+            else:
+                feedback = dbc.Alert(_("Ce patient existe déjà."), color="warning")
+                return patient_id, options, patient_id, feedback, dash.no_update, header
         else:
-            feedback = dbc.Alert(_("Ce patient existe déjà."), color="warning")
-            return patient_id, options, patient_id, feedback, dash.no_update, header
+            return (
+                dash.no_update, options, dash.no_update,
+                dbc.Alert(_("Veuillez remplir tous les champs."), color="danger"),
+                dash.no_update, dash.no_update,
+            )
 
     elif triggered_id == "patient-dropdown" and selected_patient_id:
         feedback = dbc.Alert(_("Patient chargé."), color="info", duration=2000)

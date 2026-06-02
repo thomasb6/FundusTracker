@@ -243,7 +243,8 @@ def _make_thumbnail(image_b64, width=160):
 def save_dossier(user_id, *, dossier_id=None, name="", eye="NA", date_exam="",
                  pathology_tags=None, notes="", image_b64="", image_filename="",
                  annotations=None, sift_applied=False, sift_homography=None,
-                 patient_id=None, patient_name=None):
+                 patient_id=None, patient_name=None,
+                 subject_nom=None, subject_prenom=None, subject_ddn=None):
     """Create or update a dossier. Returns dossier_id."""
     now = _datetime.now().isoformat()
     is_new = dossier_id is None
@@ -272,6 +273,9 @@ def save_dossier(user_id, *, dossier_id=None, name="", eye="NA", date_exam="",
         "sift_homography": sift_homography,
         "patient_id": patient_id or existing.get("patient_id") or None,
         "patient_name": patient_name or existing.get("patient_name") or None,
+        "subject_nom": subject_nom or existing.get("subject_nom") or None,
+        "subject_prenom": subject_prenom or existing.get("subject_prenom") or None,
+        "subject_ddn": subject_ddn or existing.get("subject_ddn") or None,
     }
 
     with open(dossier_path, "w") as f:
@@ -292,6 +296,9 @@ def save_dossier(user_id, *, dossier_id=None, name="", eye="NA", date_exam="",
         "thumbnail": thumb,
         "patient_id": data["patient_id"],
         "patient_name": data["patient_name"],
+        "subject_nom": data["subject_nom"],
+        "subject_prenom": data["subject_prenom"],
+        "subject_ddn": data["subject_ddn"],
     }
     index = [m for m in _load_index(user_id) if m["id"] != dossier_id]
     index.insert(0, meta)
@@ -334,7 +341,8 @@ def update_dossier_meta(user_id, dossier_id, **kwargs):
         return
     with open(path) as f:
         data = json_load(f)
-    allowed = {"name", "eye", "date_exam", "pathology_tags", "notes", "patient_id", "patient_name"}
+    allowed = {"name", "eye", "date_exam", "pathology_tags", "notes", "patient_id", "patient_name",
+               "subject_nom", "subject_prenom", "subject_ddn"}
     for k, v in kwargs.items():
         if k in allowed:
             data[k] = v
