@@ -1405,24 +1405,9 @@ def serve_layout(language):
     def layout_home():
         return html.Div(
             [
-                html.Div(
-                    [
-                        html.H1(
-                            "FundusTracker",
-                            style={
-                                "fontSize": "3rem",
-                                "fontWeight": "800",
-                                "letterSpacing": "-1px",
-                            },
-                            className="text-center mb-2",
-                        ),
-                        html.P(
-                            "Longitudinal retinal lesion tracking for clinical research",
-                            className="lead text-center text-muted mb-4",
-                        ),
-                        html.Hr(className="my-3"),
-                    ],
-                    className="pt-4 pb-2",
+                html.P(
+                    "Longitudinal retinal lesion tracking for clinical research",
+                    className="lead text-center text-muted pt-3 mb-4",
                 ),
                 dbc.Row(
                     [
