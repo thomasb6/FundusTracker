@@ -2298,15 +2298,16 @@ def update_figure(
 ):
     _ = get_translator(language)
     triggered_id = ctx.triggered_id
+    all_triggered = {t["prop_id"].split(".")[0] for t in (ctx.triggered or [])}
 
     # 1. Chargement initial de l'image
-    image_triggers = ["file-dropdown", "uploaded-image-store", "annotation-image-store", "reset-button"]
-    if triggered_id in image_triggers or current_fig is None or "layout" not in current_fig:
-        if triggered_id == "file-dropdown":
+    image_triggers = {"file-dropdown", "uploaded-image-store", "annotation-image-store", "reset-button"}
+    if (all_triggered & image_triggers) or current_fig is None or "layout" not in current_fig:
+        if "file-dropdown" in all_triggered:
             image_id = file_val
-        elif triggered_id == "uploaded-image-store":
+        elif "uploaded-image-store" in all_triggered:
             image_id = uploaded_image or file_val
-        elif triggered_id == "annotation-image-store":
+        elif "annotation-image-store" in all_triggered:
             image_id = annotation_image_id
         else:
             image_id = annotation_image_id or file_val or uploaded_image
@@ -2878,16 +2879,14 @@ def store_ml_local_image(contents):
 
 @app.callback(
     Output("ml-segment-btn", "disabled"),
-    Output("ml-accept-zones-btn", "disabled"),
     Output("ml-squiggle-status", "children"),
     Output("ml-upload-filename", "children"),
     Input("ml-squiggle-store", "data"),
     Input("ml-file-dropdown", "value"),
     Input("ml-image-store", "data"),
-    Input("ml-segmentation-mask", "data"),
     Input("ml-upload-image", "filename"),
 )
-def update_ml_controls(squiggles, file_val, image_store, mask, upload_filename):
+def update_ml_controls(squiggles, file_val, image_store, upload_filename):
     squiggles = squiggles or []
     has_image = bool(file_val or image_store)
     counts = {1: 0, 2: 0, 3: 0}
@@ -2895,7 +2894,6 @@ def update_ml_controls(squiggles, file_val, image_store, mask, upload_filename):
         counts[s.get("label", 0)] += 1
     unique_labels = sum(1 for v in counts.values() if v > 0)
     segment_disabled = not (has_image and unique_labels >= 2)
-    accept_disabled = not bool(mask)
 
     if not squiggles:
         if not has_image:
@@ -2922,7 +2920,7 @@ def update_ml_controls(squiggles, file_val, image_store, mask, upload_filename):
         status = html.Div(badges, className="d-flex flex-wrap gap-1 mb-1")
 
     fname = html.Span(upload_filename, style={"fontStyle": "italic"}) if upload_filename else ""
-    return segment_disabled, accept_disabled, status, fname
+    return segment_disabled, status, fname
 
 
 @app.callback(
@@ -3042,6 +3040,7 @@ def update_ml_figure(
     Output("ml-segment-result", "children"),
     Output("ml-image-graph", "figure", allow_duplicate=True),
     Output("ml-segmentation-mask", "data"),
+    Output("ml-accept-zones-btn", "disabled", allow_duplicate=True),
     Input("ml-segment-btn", "n_clicks"),
     Input("ml-reset-btn", "n_clicks"),
     State("ml-file-dropdown", "value"),
@@ -3054,7 +3053,7 @@ def ml_run_segmentation(n_seg, n_reset, file_val, image_store, squiggles, langua
     _ = get_translator(language)
     triggered = ctx.triggered_id if hasattr(ctx, "triggered_id") else None
     if triggered == "ml-reset-btn":
-        return "", dash.no_update, None  # clears result, mask
+        return "", dash.no_update, None, True  # clears result, mask; disables accept
 
     effective_image = file_val or image_store
     if not effective_image or not squiggles or len(squiggles) < 2:
@@ -3064,6 +3063,7 @@ def ml_run_segmentation(n_seg, n_reset, file_val, image_store, squiggles, langua
                  "Draw at least 2 strokes with different labels before segmenting."],
                 color="warning", className="py-2 my-1",
             ),
+            dash.no_update,
             dash.no_update,
             dash.no_update,
         )
@@ -3146,6 +3146,7 @@ def ml_run_segmentation(n_seg, n_reset, file_val, image_store, squiggles, langua
         ),
         fig,
         mask_json,
+        False,  # enable Accept button
     )
 
 
