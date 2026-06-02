@@ -982,7 +982,7 @@ def layout_my_dossiers():
 
             # ── Quick-add image modal ──────────────────────────────────────────
             dbc.Modal([
-                dbc.ModalHeader(dbc.ModalTitle("Add image to My Dossiers")),
+                dbc.ModalHeader(dbc.ModalTitle("Add image to Image Bank")),
                 dbc.ModalBody([
                     dcc.Upload(
                         id="quick-add-upload",
@@ -1044,9 +1044,16 @@ def layout_my_dossiers():
             # ── Filters ───────────────────────────────────────────────────────
             dbc.Row([
                 dbc.Col(
-                    dbc.Input(id="dossier-search", placeholder="🔍  Search name / nom / prénom…",
-                              debounce=True, size="sm"),
-                    width=3,
+                    dbc.InputGroup([
+                        dbc.Input(id="dossier-search",
+                                  placeholder="Search — name, nom, prénom…",
+                                  debounce=True, size="sm"),
+                        dbc.Button(
+                            html.I(className="fas fa-search"),
+                            id="dossier-search-btn", size="sm", color="secondary", outline=True,
+                        ),
+                    ]),
+                    width=4,
                 ),
                 dbc.Col(
                     dcc.Dropdown(
@@ -1055,7 +1062,7 @@ def layout_my_dossiers():
                         placeholder="All pathologies",
                         multi=True, clearable=True,
                         style={"fontSize": "0.85rem"},
-                    ), width=3,
+                    ), width=4,
                 ),
                 dbc.Col(
                     dcc.Dropdown(
@@ -1067,11 +1074,18 @@ def layout_my_dossiers():
                     ), width=2,
                 ),
                 dbc.Col(
-                    dbc.Input(id="dossier-filter-ddn", placeholder="DDN (YYYY-MM-DD)",
-                              debounce=True, size="sm"),
-                    width=2,
+                    dbc.ButtonGroup([
+                        dbc.Button(html.I(className="fas fa-th-large"),
+                                   id="view-grid-btn", size="sm", color="secondary", outline=True,
+                                   title="Grid view"),
+                        dbc.Button(html.I(className="fas fa-list"),
+                                   id="view-list-btn", size="sm", color="secondary", outline=False,
+                                   title="List view"),
+                    ]),
+                    width=2, className="d-flex justify-content-end",
                 ),
             ], className="mb-3 g-2"),
+            dcc.Store(id="imagebank-view-mode", data="grid"),
 
             # ── Cards grid (populated by callback) ───────────────────────────
             dcc.Loading(
@@ -1087,7 +1101,7 @@ def _dossier_cards(dossiers):
     if not dossiers:
         return dbc.Alert(
             [html.I(className="fas fa-folder-open me-2"),
-             "No dossiers yet — annotate an image and click 'Save as dossier'."],
+             "No entries yet — annotate an image and click 'Add to Image Bank'."],
             color="light", className="text-center",
         )
     cols = []
@@ -1172,8 +1186,79 @@ def _dossier_cards(dossiers):
     return dbc.Row(cols)
 
 
-def _dossier_grid_with_stats(dossiers, user_id):
-    """Build stats banner + card grid."""
+def _dossier_list_view(dossiers):
+    """Compact list/table view."""
+    if not dossiers:
+        return dbc.Alert(
+            "No entries — add an image or annotate in Manual Segmentation.",
+            color="light", className="text-center",
+        )
+    rows = []
+    for d in dossiers:
+        tags = d.get("pathology_tags") or []
+        tag_badges = [
+            dbc.Badge(t, color="secondary", className="me-1", style={"fontSize": "0.68rem"})
+            for t in tags
+        ]
+        subject = "  ".join(p for p in [d.get("subject_nom"), d.get("subject_prenom")] if p)
+        rows.append(html.Tr([
+            html.Td(
+                html.Img(src=d.get("thumbnail"), style={"width": "48px", "height": "36px",
+                         "objectFit": "cover", "borderRadius": "3px"})
+                if d.get("thumbnail") else html.Div(style={"width": "48px"}),
+                style={"width": "56px", "padding": "4px"},
+            ),
+            html.Td(html.Span(d["name"], className="fw-semibold",
+                              style={"fontSize": "0.85rem"}),
+                    style={"padding": "4px 8px"}),
+            html.Td(subject or "—", style={"fontSize": "0.8rem", "color": "#666", "padding": "4px 8px"}),
+            html.Td(dbc.Badge(d.get("eye", "NA"), color="info",
+                              style={"fontSize": "0.68rem"}),
+                    style={"padding": "4px 8px"}),
+            html.Td(html.Div(tag_badges), style={"padding": "4px 8px"}),
+            html.Td(d.get("date_exam") or d.get("modified_at", "")[:10],
+                    style={"fontSize": "0.78rem", "color": "#888", "padding": "4px 8px"}),
+            html.Td(f"{d.get('annotation_count', 0)} zones",
+                    style={"fontSize": "0.78rem", "color": "#888", "padding": "4px 8px"}),
+            html.Td(
+                html.Div([
+                    dbc.Button(html.I(className="fas fa-folder-open"),
+                               id={"type": "open-dossier-btn", "index": d["id"]},
+                               color="primary", size="sm", outline=True, className="me-1",
+                               title="Open"),
+                    dbc.Button(html.I(className="fas fa-pen"),
+                               id={"type": "edit-dossier-btn", "index": d["id"]},
+                               color="secondary", size="sm", outline=True, className="me-1",
+                               title="Edit"),
+                    dbc.Button(html.I(className="fas fa-trash"),
+                               id={"type": "delete-dossier-btn", "index": d["id"]},
+                               color="danger", size="sm", outline=True,
+                               title="Delete"),
+                ], className="d-flex"),
+                style={"padding": "4px 8px"},
+            ),
+        ], style={"borderBottom": "1px solid #f0f0f0"}))
+
+    return html.Table(
+        [
+            html.Thead(html.Tr([
+                html.Th("", style={"width": "56px"}),
+                html.Th("Name", style={"fontSize": "0.78rem", "fontWeight": "600"}),
+                html.Th("Subject", style={"fontSize": "0.78rem", "fontWeight": "600"}),
+                html.Th("Eye", style={"fontSize": "0.78rem", "fontWeight": "600"}),
+                html.Th("Tags", style={"fontSize": "0.78rem", "fontWeight": "600"}),
+                html.Th("Date", style={"fontSize": "0.78rem", "fontWeight": "600"}),
+                html.Th("Zones", style={"fontSize": "0.78rem", "fontWeight": "600"}),
+                html.Th("", style={"width": "110px"}),
+            ], style={"borderBottom": "2px solid #dee2e6"})),
+            html.Tbody(rows),
+        ],
+        style={"width": "100%", "borderCollapse": "collapse"},
+    )
+
+
+def _dossier_grid_with_stats(dossiers, view_mode="grid"):
+    """Build stats banner + card grid or list view."""
     n = len(dossiers)
     total_ann = sum(d.get("annotation_count", 0) for d in dossiers)
     tag_counts: dict = {}
@@ -1183,7 +1268,7 @@ def _dossier_grid_with_stats(dossiers, user_id):
     top_tags = sorted(tag_counts.items(), key=lambda x: -x[1])[:4]
 
     stat_items = [
-        html.Span([html.Strong(str(n)), f" dossier{'s' if n != 1 else ''}"],
+        html.Span([html.Strong(str(n)), f" entr{'ies' if n != 1 else 'y'}"],
                   className="me-3 text-muted", style={"fontSize": "0.82rem"}),
         html.Span([html.Strong(str(total_ann)), " annotation zones"],
                   className="me-3 text-muted", style={"fontSize": "0.82rem"}),
@@ -1193,9 +1278,9 @@ def _dossier_grid_with_stats(dossiers, user_id):
             dbc.Badge(f"{tag} ×{cnt}", color="secondary", className="me-1",
                       style={"fontSize": "0.72rem"})
         )
-
     banner = html.Div(stat_items, className="mb-2 d-flex flex-wrap align-items-center")
-    return html.Div([banner, _dossier_cards(dossiers)])
+    content = _dossier_list_view(dossiers) if view_mode == "list" else _dossier_cards(dossiers)
+    return html.Div([banner, content])
 
 
 def layout_admin():
@@ -2623,7 +2708,7 @@ def serve_layout(language):
         )
 
     save_dossier_modal = dbc.Modal([
-        dbc.ModalHeader(dbc.ModalTitle("Save as dossier")),
+        dbc.ModalHeader(dbc.ModalTitle("Save to Image Bank")),
         dbc.ModalBody([
             dbc.Label("Name *"),
             dbc.Input(id="ds-name", placeholder="e.g. Birdshot OD · T0", className="mb-2"),
@@ -3028,23 +3113,25 @@ def update_dossier_save_section(user_data, active):
             ], className="mb-1"),
             dbc.ButtonGroup([
                 dbc.Button(
-                    [html.I(className="fas fa-save me-1"), "Update dossier"],
+                    [html.I(className="fas fa-save me-1"), "Update"],
                     id="update-dossier-btn", color="primary", size="sm", outline=True,
                     className="w-100",
                 ),
                 dbc.Button(
-                    [html.I(className="fas fa-plus me-1"), "Save as new"],
+                    [html.I(className="fas fa-plus me-1"), "New entry"],
                     id="save-as-dossier-btn", color="secondary", size="sm", outline=True,
                 ),
-            ], className="w-100 mb-2"),
+            ], className="w-100 mb-1"),
+            html.Div(id="imagebank-save-feedback"),
         ])
     return html.Div([
         dbc.Button(
-            [html.I(className="fas fa-folder-plus me-2"), "Save as dossier"],
+            [html.I(className="fas fa-plus me-2"), "Add to Image Bank"],
             id="save-as-dossier-btn", color="primary", size="sm",
             outline=True, className="w-100 mb-2",
         ),
         dbc.Button(id="update-dossier-btn", style={"display": "none"}),
+        html.Div(id="imagebank-save-feedback"),
     ])
 
 
@@ -3163,6 +3250,7 @@ def do_save_dossier(n, name, eye, date_exam, tags, notes, editing_id, nom, preno
 @app.callback(
     Output("dossiers-refresh-trigger", "data", allow_duplicate=True),
     Output("active-dossier-store", "data", allow_duplicate=True),
+    Output("imagebank-save-feedback", "children"),
     Input("update-dossier-btn", "n_clicks"),
     State("active-dossier-store", "data"),
     State("stored-shapes", "data"),
@@ -3175,7 +3263,7 @@ def do_save_dossier(n, name, eye, date_exam, tags, notes, editing_id, nom, preno
 )
 def update_dossier(n, active, shapes, uploaded_img, file_val, local_fn, M_list, trigger_val):
     if not n or not current_user.is_authenticated or not active:
-        return dash.no_update, dash.no_update
+        return dash.no_update, dash.no_update, dash.no_update
     image_b64 = uploaded_img or ""
     if not image_b64 and file_val:
         try:
@@ -3191,7 +3279,12 @@ def update_dossier(n, active, shapes, uploaded_img, file_val, local_fn, M_list, 
         annotations=shapes or [],
         sift_applied=bool(M_list), sift_homography=M_list,
     )
-    return (trigger_val or 0) + 1, active
+    feedback = dbc.Alert(
+        [html.I(className="fas fa-check me-1"), f"Saved — {active['name']}"],
+        color="success", duration=2500,
+        style={"fontSize": "0.78rem", "padding": "4px 8px", "marginBottom": "0"},
+    )
+    return (trigger_val or 0) + 1, active, feedback
 
 
 
@@ -3212,23 +3305,38 @@ def navigate_to_recent_patient(n_clicks_list):
     return patient_id, "tab-patients"
 
 
+# ── Toggle view mode (grid / list) ───────────────────────────────────────────
+@app.callback(
+    Output("imagebank-view-mode", "data"),
+    Input("view-grid-btn", "n_clicks"),
+    Input("view-list-btn", "n_clicks"),
+    prevent_initial_call=True,
+)
+def toggle_view_mode(grid_n, list_n):
+    return "list" if ctx.triggered_id == "view-list-btn" else "grid"
+
+
 # ── Populate dossiers grid ────────────────────────────────────────────────────
 @app.callback(
     Output("dossiers-content", "children"),
     Input("dossiers-refresh-trigger", "data"),
     Input("tabs", "value"),
     Input("dossier-search", "value"),
+    Input("dossier-search-btn", "n_clicks"),
     Input("dossier-filter-tag", "value"),
     Input("dossier-filter-eye", "value"),
-    Input("dossier-filter-ddn", "value"),
+    Input("imagebank-view-mode", "data"),
+    State("dossier-search", "value"),
     prevent_initial_call=True,
 )
-def refresh_dossiers_grid(trigger, active_tab, search, tag_filter, eye_filter, ddn_filter):
+def refresh_dossiers_grid(trigger, active_tab, search, _btn, tag_filter, eye_filter, view_mode, search_state):
     if active_tab != "tab-dossiers" or not current_user.is_authenticated:
         return dash.no_update
+    # Use button-triggered search value (State) when button clicked
+    q_raw = search_state if ctx.triggered_id == "dossier-search-btn" else search
     dossiers = list_dossiers(current_user.id)
-    if search:
-        q = search.lower()
+    if q_raw:
+        q = q_raw.lower()
         dossiers = [d for d in dossiers if
                     q in d["name"].lower()
                     or q in (d.get("subject_nom") or "").lower()
@@ -3238,9 +3346,7 @@ def refresh_dossiers_grid(trigger, active_tab, search, tag_filter, eye_filter, d
                     if any(t in (d.get("pathology_tags") or []) for t in tag_filter)]
     if eye_filter:
         dossiers = [d for d in dossiers if d.get("eye") == eye_filter]
-    if ddn_filter:
-        dossiers = [d for d in dossiers if (d.get("subject_ddn") or "").startswith(ddn_filter)]
-    return _dossier_grid_with_stats(dossiers, current_user.id)
+    return _dossier_grid_with_stats(dossiers, view_mode or "grid")
 
 
 # ── Export cohort as ZIP ──────────────────────────────────────────────────────
@@ -3250,10 +3356,9 @@ def refresh_dossiers_grid(trigger, active_tab, search, tag_filter, eye_filter, d
     State("dossier-search", "value"),
     State("dossier-filter-tag", "value"),
     State("dossier-filter-eye", "value"),
-    State("dossier-filter-ddn", "value"),
     prevent_initial_call=True,
 )
-def export_cohort_zip(n, search, tag_filter, eye_filter, ddn_filter):
+def export_cohort_zip(n, search, tag_filter, eye_filter):
     if not n or not current_user.is_authenticated:
         return dash.no_update
     dossiers_meta = list_dossiers(current_user.id)
@@ -3267,8 +3372,6 @@ def export_cohort_zip(n, search, tag_filter, eye_filter, ddn_filter):
                          if any(t in (d.get("pathology_tags") or []) for t in tag_filter)]
     if eye_filter:
         dossiers_meta = [d for d in dossiers_meta if d.get("eye") == eye_filter]
-    if ddn_filter:
-        dossiers_meta = [d for d in dossiers_meta if (d.get("subject_ddn") or "").startswith(ddn_filter)]
 
     import csv as _csv
     buf = io_buffer.BytesIO()
