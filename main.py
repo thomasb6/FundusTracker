@@ -2588,8 +2588,13 @@ def update_shapes_combined(
         decoded = base64.b64decode(content_string)
         try:
             parsed = json.loads(decoded.decode("utf-8"))
-            # Support both legacy format (plain list) and new format ({metadata, shapes})
-            new_annotations = parsed.get("shapes", parsed) if isinstance(parsed, dict) else parsed
+            if isinstance(parsed, list):
+                new_annotations = parsed  # legacy format
+            elif isinstance(parsed, dict):
+                # SIFT format: prefer sift-space coords for re-use on the same aligned image
+                new_annotations = parsed.get("shapes_sift") or parsed.get("shapes") or []
+            else:
+                new_annotations = []
             optic_nerve_idx, _shape = find_optic_nerve(new_annotations, language)
             if optic_nerve_idx is not None and optic_nerve_idx > 0:
                 optic_nerve_shape = new_annotations.pop(optic_nerve_idx)
@@ -2909,14 +2914,14 @@ def download_annotations(n_clicks, stored_shapes, file_val, local_filename, M_li
         return dash.no_update
 
     if M_list:
-        shapes_out = transform_shapes_to_original(stored_shapes, M_list)
+        shapes_original = transform_shapes_to_original(stored_shapes, M_list)
         export = {
             "metadata": {
                 "sift_applied": True,
                 "sift_homography": M_list,
-                "coordinate_space": "original",
             },
-            "shapes": shapes_out,
+            "shapes_sift": stored_shapes,
+            "shapes_original": shapes_original,
         }
     else:
         export = {"metadata": {"sift_applied": False}, "shapes": stored_shapes}
