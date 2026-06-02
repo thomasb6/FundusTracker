@@ -1846,6 +1846,7 @@ def serve_layout(language):
         _ = get_translator(language)
         return html.Div(
             [
+                html.Div(id="patient-auth-banner", className="px-3 pt-2"),
                 html.Div(
                     [
                         html.H4(_("Gestion du Patient")),
@@ -2285,31 +2286,52 @@ def serve_layout(language):
     if user:
         auth_widget = html.Div(
             [
+                html.Div(id="sync-status-display", className="me-2"),
                 html.Span(
                     [html.I(className="fas fa-user-circle me-1"), user.username],
-                    className="me-2 text-muted",
+                    className="me-1 text-muted fw-semibold",
                     style={"fontSize": "0.85rem"},
+                ),
+                dbc.Button(
+                    [html.I(className="fas fa-key me-1"), ""],
+                    id="open-change-password-btn", color="light", size="sm",
+                    outline=True, title="Change password",
                 ),
                 dbc.Button(
                     [html.I(className="fas fa-sign-out-alt me-1"), "Logout"],
                     id="logout-btn", color="light", size="sm", outline=True,
                 ),
-                # Placeholder so IDs always exist in layout
                 dbc.Button(id="open-login-modal-btn", style={"display": "none"}),
             ],
-            style={"display": "flex", "alignItems": "center", "gap": "6px"},
+            style={"display": "flex", "alignItems": "center", "gap": "5px"},
         )
     else:
         auth_widget = html.Div(
             [
+                html.Div(id="sync-status-display"),
                 dbc.Button(
                     [html.I(className="fas fa-sign-in-alt me-1"), "Login"],
                     id="open-login-modal-btn", color="primary", size="sm", outline=True,
                 ),
-                # Placeholder so IDs always exist in layout
                 dbc.Button(id="logout-btn", style={"display": "none"}),
-            ]
+                dbc.Button(id="open-change-password-btn", style={"display": "none"}),
+            ],
+            style={"display": "flex", "alignItems": "center", "gap": "5px"},
         )
+
+    change_password_modal = dbc.Modal(
+        [
+            dbc.ModalHeader(dbc.ModalTitle("Change password")),
+            dbc.ModalBody([
+                dbc.Input(id="cp-current", type="password", placeholder="Current password", className="mb-2"),
+                dbc.Input(id="cp-new", type="password", placeholder="New password", className="mb-2"),
+                dbc.Input(id="cp-confirm", type="password", placeholder="Confirm new password", className="mb-3"),
+                dbc.Button("Update password", id="cp-submit-btn", color="primary", className="w-100"),
+                html.Div(id="cp-feedback", className="mt-2 text-center"),
+            ]),
+        ],
+        id="change-password-modal", is_open=False, centered=True,
+    )
 
     login_modal = dbc.Modal(
         [
@@ -2337,6 +2359,7 @@ def serve_layout(language):
     return html.Div(
         [
             login_modal,
+            change_password_modal,
             html.Div(
                 [
                     html.Div(
@@ -2445,6 +2468,7 @@ def serve_layout(language):
             dcc.Store(id="sift-homography-store", data=None),
             dcc.Store(id="pre-sift-image-store", data=None),
             dcc.Store(id="patient-autosave-store", data=None),
+            dcc.Store(id="last-saved-store", data=None),
         ]
     )
 
@@ -2506,29 +2530,122 @@ def handle_logout(n):
     return None
 
 
-# ── Load patient data on login ─────────────────────────────────────────────────
+# ── Logout: clear all patient stores ──────────────────────────────────────────
 @app.callback(
     Output("longitudinal-series-store", "data", allow_duplicate=True),
+    Output("longitudinal-active-patient-store", "data", allow_duplicate=True),
+    Output("last-saved-store", "data", allow_duplicate=True),
     Input("current-user-store", "data"),
     prevent_initial_call=True,
 )
-def load_data_on_login(user_data):
+def sync_stores_on_auth_change(user_data):
     if not current_user.is_authenticated:
-        return dash.no_update
-    return load_patient_data(current_user.id)
+        # Logout: wipe patient data from browser
+        return {}, None, None
+    # Login: load from server
+    data = load_patient_data(current_user.id)
+    return data, None, None
 
 
-# ── Auto-save patient data when it changes ────────────────────────────────────
+# ── Auto-save patient data + update last-saved timestamp ──────────────────────
 @app.callback(
     Output("patient-autosave-store", "data"),
+    Output("last-saved-store", "data"),
     Input("longitudinal-series-store", "data"),
     prevent_initial_call=True,
 )
 def auto_save_patients(series_data):
     if not current_user.is_authenticated or series_data is None:
-        return dash.no_update
+        return dash.no_update, dash.no_update
     save_patient_data(current_user.id, series_data)
+    ts = datetime.now().strftime("%H:%M:%S")
+    return dash.no_update, ts
+
+
+# ── Sync status display in header ─────────────────────────────────────────────
+@app.callback(
+    Output("sync-status-display", "children"),
+    Input("last-saved-store", "data"),
+    Input("current-user-store", "data"),
+)
+def update_sync_display(last_saved, user_data):
+    if not current_user.is_authenticated:
+        return ""
+    if last_saved:
+        return html.Span(
+            [html.I(className="fas fa-cloud-upload-alt me-1"), f"Saved {last_saved}"],
+            className="text-success", style={"fontSize": "0.75rem"},
+        )
+    return html.Span(
+        [html.I(className="fas fa-cloud me-1"), "Cloud sync on"],
+        className="text-muted", style={"fontSize": "0.75rem"},
+    )
+
+
+# ── Patient tab auth banner ────────────────────────────────────────────────────
+@app.callback(
+    Output("patient-auth-banner", "children"),
+    Input("current-user-store", "data"),
+    Input("last-saved-store", "data"),
+)
+def update_patient_auth_banner(user_data, last_saved):
+    if current_user.is_authenticated:
+        msg = f"Synced to account · {current_user.username}"
+        if last_saved:
+            msg += f" · Last save: {last_saved}"
+        return dbc.Alert(
+            [html.I(className="fas fa-cloud-upload-alt me-2"), msg],
+            color="success", className="py-1 mb-2", style={"fontSize": "0.82rem"},
+        )
+    return dbc.Alert(
+        [
+            html.I(className="fas fa-exclamation-circle me-2"),
+            "Not logged in — patient data will be lost on page refresh. ",
+            dbc.Button("Login", id="open-login-modal-btn", color="warning", size="sm",
+                       outline=True, className="py-0 ms-1"),
+        ],
+        color="warning", className="py-1 mb-2", style={"fontSize": "0.82rem"},
+    )
+
+
+# ── Change password modal open/close ──────────────────────────────────────────
+@app.callback(
+    Output("change-password-modal", "is_open"),
+    Input("open-change-password-btn", "n_clicks"),
+    Input("cp-submit-btn", "n_clicks"),
+    State("change-password-modal", "is_open"),
+    prevent_initial_call=True,
+)
+def toggle_cp_modal(open_n, submit_n, is_open):
+    if ctx.triggered_id == "open-change-password-btn":
+        return True
     return dash.no_update
+
+
+# ── Change password submit ─────────────────────────────────────────────────────
+@app.callback(
+    Output("cp-feedback", "children"),
+    Output("change-password-modal", "is_open", allow_duplicate=True),
+    Input("cp-submit-btn", "n_clicks"),
+    State("cp-current", "value"),
+    State("cp-new", "value"),
+    State("cp-confirm", "value"),
+    prevent_initial_call=True,
+)
+def handle_change_password(n, current_pw, new_pw, confirm_pw):
+    if not current_user.is_authenticated:
+        return dbc.Alert("Not authenticated.", color="danger", className="py-1"), dash.no_update
+    if not current_pw or not new_pw or not confirm_pw:
+        return dbc.Alert("All fields are required.", color="warning", className="py-1"), dash.no_update
+    if new_pw != confirm_pw:
+        return dbc.Alert("New passwords do not match.", color="danger", className="py-1"), dash.no_update
+    if len(new_pw) < 6:
+        return dbc.Alert("Password must be at least 6 characters.", color="warning", className="py-1"), dash.no_update
+    from auth import verify_user as _verify
+    if not _verify(current_user.username, current_pw):
+        return dbc.Alert("Current password is incorrect.", color="danger", className="py-1"), dash.no_update
+    update_password(current_user.id, new_pw)
+    return dbc.Alert("Password updated successfully.", color="success", className="py-1"), False
 
 
 # ── Admin: create user ─────────────────────────────────────────────────────────
