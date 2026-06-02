@@ -2333,9 +2333,11 @@ def update_figure(
     # 1. Chargement initial de l'image
     image_triggers = {"file-dropdown", "uploaded-image-store", "annotation-image-store", "reset-button"}
     if (all_triggered & image_triggers) or current_fig is None or "layout" not in current_fig:
-        if "file-dropdown" in all_triggered:
+        if "file-dropdown" in all_triggered and file_val is not None:
+            # User explicitly picked a file from the dropdown
             image_id = file_val
         elif "uploaded-image-store" in all_triggered:
+            # Local upload or SIFT result (file-dropdown may have been cleared to None)
             image_id = uploaded_image or file_val
         elif "annotation-image-store" in all_triggered:
             image_id = annotation_image_id
