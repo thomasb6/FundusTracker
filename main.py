@@ -2759,7 +2759,7 @@ def update_patient_account_status(user_data, last_saved):
             html.Span("Not saved — ", className="text-muted", style={"fontSize": "0.8rem"}),
             dbc.Button(
                 "Login to save",
-                id="open-login-modal-btn",
+                id="patient-login-shortcut-btn",
                 color="link",
                 size="sm",
                 className="p-0",
@@ -2767,6 +2767,15 @@ def update_patient_account_status(user_data, last_saved):
             ),
         ]
     )
+
+
+@app.callback(
+    Output("login-modal", "is_open", allow_duplicate=True),
+    Input("patient-login-shortcut-btn", "n_clicks"),
+    prevent_initial_call=True,
+)
+def open_login_from_patient(n):
+    return True if n else dash.no_update
 
 
 # ── Change password modal open/close ──────────────────────────────────────────
