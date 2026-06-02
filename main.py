@@ -1132,8 +1132,9 @@ def serve_layout(language):
                                                             width=6,
                                                         ),
                                                     ],
-                                                    className="mb-3",
+                                                    className="mb-1",
                                                 ),
+                                                html.Div(id="crop-ref-status", className="mb-2"),
                                                 dbc.Button(
                                                     [
                                                         _("Recadrer l'image"),
@@ -6311,6 +6312,30 @@ def manage_crop_workflow(
             )
 
     return is_open, dash.no_update, dash.no_update, dash.no_update, dash.no_update
+
+
+@app.callback(
+    Output("crop-ref-status", "children"),
+    Input("crop-ref-dropdown", "value"),
+    Input("crop-ref-upload", "filename"),
+    Input("open-crop-modal-btn", "n_clicks"),
+)
+def update_crop_ref_status(dropdown_val, upload_filename, _open):
+    triggered = ctx.triggered_id
+    if triggered == "open-crop-modal-btn":
+        return ""
+    if upload_filename:
+        return dbc.Alert(
+            [html.I(className="fas fa-check-circle me-2"), f"Reference: {upload_filename}"],
+            color="success", className="py-1 mb-0", style={"fontSize": "0.85rem"},
+        )
+    if dropdown_val:
+        name = dropdown_val.split("/")[-1]
+        return dbc.Alert(
+            [html.I(className="fas fa-check-circle me-2"), f"Reference: {name}"],
+            color="success", className="py-1 mb-0", style={"fontSize": "0.85rem"},
+        )
+    return ""
 
 
 @app.callback(
