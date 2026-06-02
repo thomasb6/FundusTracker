@@ -1189,3 +1189,15 @@ msgstr "Visual result:"
 #: main_V2_clean_humanize.py:5951
 msgid "Alignement réussi !"
 msgstr "Alignment successful!"
+
+msgid "L'utilisateur définit des régions d'intérêt (Gribouillage/Squiggles) pour entraîner le modèle en temps réel sur l'image active, permettant une segmentation rapide des lésions complexes. (prototype)"
+msgstr "The user defines regions of interest (Scribbles/Squiggles) to train the model in real-time on the active image, allowing rapid segmentation of complex lesions. (prototype)"
+
+msgid "Algorithme de segmentation (Prototype)"
+msgstr "Segmentation Algorithm (Prototype)"
+
+msgid "© 2026 – Réalisé par Thomas Foulonneau & Aliénor Vienne-Jumeau"
+msgstr "© 2026 – Realized by Thomas Foulonneau & Aliénor Vienne-Jumeau"
+
+msgid "© 2025 – Réalisé par Thomas Foulonneau & Aliénor Vienne-Jumeau"
+msgstr "© 2025 – Realized by Thomas Foulonneau & Aliénor Vienne-Jumeau"
