@@ -879,9 +879,12 @@ server = app.server
 
 # ── Auth setup ────────────────────────────────────────────────────────────────
 _secret_key_file = "secret_key.txt"
+_existing_key = ""
 if os.path.exists(_secret_key_file):
     with open(_secret_key_file) as _f:
-        server.config["SECRET_KEY"] = _f.read().strip()
+        _existing_key = _f.read().strip()
+if _existing_key:
+    server.config["SECRET_KEY"] = _existing_key
 else:
     _key = os.urandom(32).hex()
     with open(_secret_key_file, "w") as _f:
