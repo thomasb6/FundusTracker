@@ -2284,6 +2284,7 @@ def serve_layout(language):
             dcc.Store(id="visibility-store", data=True),
             dcc.Store(id="undo-store", data=[]),
             dcc.Store(id="sift-homography-store", data=None),
+            dcc.Store(id="pre-sift-image-store", data=None),
         ]
     )
 
@@ -3812,6 +3813,7 @@ clientside_callback(
     Output("upload-image", "filename", allow_duplicate=True),
     Output("upload-image", "last_modified", allow_duplicate=True),
     Output("sift-homography-store", "data", allow_duplicate=True),
+    Output("pre-sift-image-store", "data", allow_duplicate=True),
     Input("upload-image", "contents"),
     Input("file-dropdown", "value"),
     State("upload-image", "filename"),
@@ -3826,35 +3828,18 @@ def set_uploaded_image(contents, dropdown_value, filename, last_modified):
     )
 
     if triggered == "upload-image" and contents is not None:
-        # New local upload without SIFT — clear homography
-        return contents, None, filename, None, None, None, None
+        # New local upload without SIFT — clear homography and pre-sift store
+        return contents, None, filename, None, None, None, None, None
 
     elif triggered == "file-dropdown":
 
         if dropdown_value is None:
+            return (dash.no_update,) * 8
 
-            return (
-                dash.no_update,
-                dash.no_update,
-                dash.no_update,
-                dash.no_update,
-                dash.no_update,
-                dash.no_update,
-                dash.no_update,
-            )
+        # GitHub dropdown selection — clear homography and pre-sift store
+        return (None, dropdown_value, None, dash.no_update, dash.no_update, dash.no_update, None, None)
 
-        # GitHub dropdown selection — clear homography
-        return (
-            None,
-            dropdown_value,
-            None,
-            dash.no_update,
-            dash.no_update,
-            dash.no_update,
-            None,
-        )
-
-    return None, None, None, None, None, None, None
+    return (None,) * 8
 
 
 @app.callback(
@@ -6343,16 +6328,21 @@ def update_crop_ref_status(dropdown_val, upload_filename, _open):
     Output("file-dropdown", "value", allow_duplicate=True),
     Output("crop-modal", "is_open", allow_duplicate=True),
     Output("sift-homography-store", "data"),
+    Output("pre-sift-image-store", "data"),
     Input("apply-cropped-img-btn", "n_clicks"),
     State("crop-result-temp-store", "data"),
+    State("file-dropdown", "value"),
+    State("uploaded-image-store", "data"),
     prevent_initial_call=True,
 )
-def apply_cropped_image(n_clicks, crop_data):
+def apply_cropped_image(n_clicks, crop_data, file_val, uploaded_image):
     if not n_clicks or not crop_data:
-        return dash.no_update, dash.no_update, dash.no_update, dash.no_update
+        return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
     image = crop_data.get("image") if isinstance(crop_data, dict) else crop_data
     M_list = crop_data.get("M") if isinstance(crop_data, dict) else None
-    return image, None, False, M_list
+    # Save original image (file path or base64) before it gets overwritten
+    original = file_val or uploaded_image
+    return image, None, False, M_list, original
 
 
 @app.callback(
@@ -6423,46 +6413,55 @@ def export_segmentation_mask(n_clicks, stored_shapes, file_val, uploaded_image, 
     State("language-store", "data"),
     State("axial-length-input", "value"),
     State("sift-homography-store", "data"),
+    State("pre-sift-image-store", "data"),
     prevent_initial_call=True,
 )
-def export_all_zip(n_clicks, stored_shapes, file_val, uploaded_image, language, axial_length, M_list):
+def export_all_zip(n_clicks, stored_shapes, file_val, uploaded_image, language, axial_length, M_list, pre_sift_image):
     if not n_clicks or not stored_shapes:
         return dash.no_update
     df, filename_xlsx = process_image_analysis_data(
         stored_shapes, file_val, uploaded_image, language, axial_length
     )
     base_name = filename_xlsx.replace(".xlsx", "")
-    image_png_bytes = None
-    mask_bytes = None
+
+    def to_png_bytes(image_id):
+        pil_img = load_image_any(image_id)
+        buf = io_buffer.BytesIO()
+        pil_img.save(buf, format="PNG")
+        return buf.getvalue(), pil_img
+
+    sift_png = original_png = mask_bytes = None
     try:
         image_id = file_val or uploaded_image
         if image_id:
-            pil_img = load_image_any(image_id)
-            # Source image as PNG
-            img_buf = io_buffer.BytesIO()
-            pil_img.save(img_buf, format="PNG")
-            image_png_bytes = img_buf.getvalue()
-            # Color-coded mask
+            sift_png, pil_img = to_png_bytes(image_id)
             width, height = pil_img.size
             color_mask = generate_color_mask((height, width), stored_shapes, language)
-            is_success, buffer = cv2.imencode(".png", cv2.cvtColor(color_mask, cv2.COLOR_RGB2BGR))
-            if is_success:
-                mask_bytes = buffer.tobytes()
+            ok, buf = cv2.imencode(".png", cv2.cvtColor(color_mask, cv2.COLOR_RGB2BGR))
+            if ok:
+                mask_bytes = buf.tobytes()
+        if M_list and pre_sift_image:
+            original_png, _ = to_png_bytes(pre_sift_image)
     except Exception as e:
-        print(f"Erreur lors de la génération des fichiers pour le ZIP : {e}")
+        print(f"Erreur génération fichiers ZIP : {e}")
+
     zip_buffer = io_buffer.BytesIO()
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
         with io_buffer.BytesIO() as excel_buffer:
             with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
                 df.to_excel(writer, index=False, sheet_name="Analyse")
             zf.writestr(f"{base_name}_analyse.xlsx", excel_buffer.getvalue())
-        if image_png_bytes:
-            zf.writestr(f"{base_name}.png", image_png_bytes)
         if M_list:
             shapes_original = transform_shapes_to_original(stored_shapes, M_list)
+            if sift_png:
+                zf.writestr(f"{base_name}_sift.png", sift_png)
+            if original_png:
+                zf.writestr(f"{base_name}_original.png", original_png)
             zf.writestr(f"{base_name}_annotations_sift.json",     json.dumps(stored_shapes,   indent=2))
             zf.writestr(f"{base_name}_annotations_original.json", json.dumps(shapes_original, indent=2))
         else:
+            if sift_png:
+                zf.writestr(f"{base_name}.png", sift_png)
             zf.writestr(f"{base_name}_annotations.json", json.dumps(stored_shapes, indent=2))
         if mask_bytes:
             zf.writestr(f"{base_name}_mask.png", mask_bytes)
