@@ -548,7 +548,7 @@ def generate_figure(image, file_val=None, shapes=None, size="normal"):
         showlegend=False,
         margin=dict(l=0, r=0, t=0, b=0),
         shapes=shapes if shapes is not None else [],
-        newshape=dict(line=dict(color="white", width=2, dash="dot")),
+        newshape=dict(line=dict(color="white", width=1, dash="longdash")),
         hovermode=False,
     )
     return fig
@@ -2308,8 +2308,8 @@ def update_figure(
             s_to_draw["editable"] = True if is_visible else False
             s_to_draw["visible"] = True
             s_to_draw["layer"] = "above"
-            s_to_draw["line"]["width"] = 3
-            s_to_draw["line"]["dash"] = "dot" if dashed_contour else "solid"
+            s_to_draw["line"]["width"] = 1
+            s_to_draw["line"]["dash"] = "longdash" if dashed_contour else "solid"
 
             # Gestion des couleurs par label
             if s_to_draw.get("customdata") == _("nerf optique"):
@@ -2473,11 +2473,11 @@ def update_shapes_combined(
         if papille_shapes:
             papille_shape = papille_shapes[0]
             papille_shape["customdata"] = optic_nerve_label
-            papille_shape["line"] = {"color": "yellow", "width": 2, "dash": "dot"}
+            papille_shape["line"] = {"color": "yellow", "width": 1, "dash": "longdash"}
             new_shapes.append(papille_shape)
         for sh in lesion_shapes:
             sh["customdata"] = _("segmentation-auto")
-            sh["line"] = {"color": "white", "width": 2, "dash": "dot"}
+            sh["line"] = {"color": "white", "width": 1, "dash": "longdash"}
             new_shapes.append(sh)
         for i, sh in enumerate(new_shapes):
             sh["customid"] = i + 1
@@ -2548,7 +2548,7 @@ def update_shapes_combined(
             "y0": cy - 55,
             "x1": cx + 45,
             "y1": cy + 55,
-            "line": {"color": "white", "width": 2, "dash": "dot"},
+            "line": {"color": "white", "width": 1, "dash": "longdash"},
             "customdata": optic_nerve_label,
             "editable": True,
             "layer": "above",
@@ -2576,12 +2576,12 @@ def update_shapes_combined(
                 else:
                     shape_to_move = shapes.pop(target_idx)
                     shape_to_move["customdata"] = label
-                    shape_to_move["line"]["dash"] = "dot"
+                    shape_to_move["line"]["dash"] = "longdash"
                     shape_to_move["line"]["color"] = "yellow"
                     shapes.insert(0, shape_to_move)
             else:
                 shapes[target_idx]["customdata"] = label
-                shapes[target_idx]["line"]["dash"] = "dot"
+                shapes[target_idx]["line"]["dash"] = "longdash"
                 if label == _("Exclusion"):
                     shapes[target_idx]["line"]["color"] = "gray"
                 else:
