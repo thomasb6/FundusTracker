@@ -3811,6 +3811,7 @@ def set_uploaded_image(contents, dropdown_value, filename, last_modified):
                 dash.no_update,
                 dash.no_update,
                 dash.no_update,
+                dash.no_update,
             )
 
         # GitHub dropdown selection — clear homography
