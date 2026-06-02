@@ -1,16 +1,20 @@
+import base64
+import io as _io
+import json as _json
 import os
 import sqlite3
+import uuid as _uuid
+from datetime import datetime as _datetime
+
 from flask_login import UserMixin
-from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
+from PIL import Image as _PILImage
 
 DB_PATH = "fundus_users.db"
 
-
-class User(UserMixin):
-    def __init__(self, id, username, is_admin=False):
-        self.id = str(id)
-        self.username = username
-        self.is_admin = bool(is_admin)
+# ── Helpers ───────────────────────────────────────────────────────────────────
+json_load = _json.load
+json_dump = _json.dump
 
 
 def _get_db():
@@ -19,25 +23,33 @@ def _get_db():
     return conn
 
 
+# ── User model ─────────────────────────────────────────────────────────────────
+class User(UserMixin):
+    def __init__(self, id, username, is_admin=False):
+        self.id = str(id)
+        self.username = username
+        self.is_admin = bool(is_admin)
+
+
+# ── DB init ────────────────────────────────────────────────────────────────────
 def init_db():
     with _get_db() as conn:
         conn.executescript("""
             CREATE TABLE IF NOT EXISTS users (
-                id       INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT    UNIQUE NOT NULL,
-                password_hash TEXT NOT NULL,
-                is_admin INTEGER DEFAULT 0,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                username      TEXT    UNIQUE NOT NULL,
+                password_hash TEXT    NOT NULL,
+                is_admin      INTEGER DEFAULT 0,
+                created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
             CREATE TABLE IF NOT EXISTS shares (
-                id            INTEGER PRIMARY KEY AUTOINCREMENT,
-                owner_id      INTEGER NOT NULL,
-                patient_key   TEXT    NOT NULL,
+                id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                owner_id       INTEGER NOT NULL,
+                patient_key    TEXT    NOT NULL,
                 shared_with_id INTEGER NOT NULL,
                 UNIQUE(owner_id, patient_key, shared_with_id)
             );
         """)
-        # Create default admin on first run
         if not conn.execute("SELECT 1 FROM users LIMIT 1").fetchone():
             conn.execute(
                 "INSERT INTO users (username, password_hash, is_admin) VALUES (?,?,1)",
@@ -46,6 +58,7 @@ def init_db():
         conn.commit()
 
 
+# ── User CRUD ──────────────────────────────────────────────────────────────────
 def get_user_by_id(user_id):
     with _get_db() as conn:
         row = conn.execute("SELECT * FROM users WHERE id=?", (user_id,)).fetchone()
@@ -102,6 +115,7 @@ def get_all_users():
     return [dict(r) for r in rows]
 
 
+# ── File-based storage helpers ─────────────────────────────────────────────────
 def get_userdata_dir(user_id):
     path = os.path.join("userdata", str(user_id))
     os.makedirs(path, exist_ok=True)
@@ -122,7 +136,141 @@ def save_patient_data(user_id, data):
         json_dump(data, f)
 
 
-# Import json lazily to avoid circular imports
-import json as _json
-json_load = _json.load
-json_dump = _json.dump
+# ── Dossier storage ────────────────────────────────────────────────────────────
+def _dossiers_dir(user_id):
+    path = os.path.join(get_userdata_dir(user_id), "dossiers")
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
+def _index_path(user_id):
+    return os.path.join(get_userdata_dir(user_id), "dossiers_index.json")
+
+
+def _load_index(user_id):
+    p = _index_path(user_id)
+    if os.path.exists(p):
+        with open(p) as f:
+            return json_load(f)
+    return []
+
+
+def _save_index(user_id, index):
+    with open(_index_path(user_id), "w") as f:
+        json_dump(index, f)
+
+
+def _make_thumbnail(image_b64, width=160):
+    """Return a small JPEG thumbnail as base64 data-URL, or None on failure."""
+    try:
+        data = image_b64.split(",", 1)[1] if "," in image_b64 else image_b64
+        img = _PILImage.open(_io.BytesIO(base64.b64decode(data))).convert("RGB")
+        ratio = width / img.width
+        img = img.resize((width, max(1, int(img.height * ratio))), _PILImage.LANCZOS)
+        buf = _io.BytesIO()
+        img.save(buf, format="JPEG", quality=55)
+        return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode()
+    except Exception:
+        return None
+
+
+def save_dossier(user_id, *, dossier_id=None, name="", eye="NA", date_exam="",
+                 pathology_tags=None, notes="", image_b64="", image_filename="",
+                 annotations=None, sift_applied=False, sift_homography=None):
+    """Create or update a dossier. Returns dossier_id."""
+    now = _datetime.now().isoformat()
+    is_new = dossier_id is None
+    if is_new:
+        dossier_id = str(_uuid.uuid4())
+
+    existing = {}
+    dossier_path = os.path.join(_dossiers_dir(user_id), f"{dossier_id}.json")
+    if os.path.exists(dossier_path):
+        with open(dossier_path) as f:
+            existing = json_load(f)
+
+    data = {
+        "id": dossier_id,
+        "name": name or "Unnamed",
+        "created_at": existing.get("created_at", now),
+        "modified_at": now,
+        "eye": eye or "NA",
+        "date_exam": date_exam or "",
+        "pathology_tags": pathology_tags or [],
+        "notes": notes or "",
+        "image_b64": image_b64 or existing.get("image_b64", ""),
+        "image_filename": image_filename or existing.get("image_filename", ""),
+        "annotations": annotations if annotations is not None else existing.get("annotations", []),
+        "sift_applied": sift_applied,
+        "sift_homography": sift_homography,
+    }
+
+    with open(dossier_path, "w") as f:
+        json_dump(data, f)
+
+    # Update lightweight index
+    thumb = _make_thumbnail(data["image_b64"]) if data["image_b64"] else None
+    meta = {
+        "id": dossier_id,
+        "name": data["name"],
+        "created_at": data["created_at"],
+        "modified_at": data["modified_at"],
+        "eye": data["eye"],
+        "date_exam": data["date_exam"],
+        "pathology_tags": data["pathology_tags"],
+        "annotation_count": len(data["annotations"]),
+        "image_filename": data["image_filename"],
+        "thumbnail": thumb,
+    }
+    index = [m for m in _load_index(user_id) if m["id"] != dossier_id]
+    index.insert(0, meta)
+    index.sort(key=lambda x: x.get("modified_at", ""), reverse=True)
+    _save_index(user_id, index)
+
+    return dossier_id
+
+
+def list_dossiers(user_id):
+    """Return lightweight dossier index (no image_b64)."""
+    return _load_index(user_id)
+
+
+def get_dossier(user_id, dossier_id):
+    """Return full dossier dict including image_b64."""
+    path = os.path.join(_dossiers_dir(user_id), f"{dossier_id}.json")
+    if os.path.exists(path):
+        with open(path) as f:
+            return json_load(f)
+    return None
+
+
+def delete_dossier(user_id, dossier_id):
+    path = os.path.join(_dossiers_dir(user_id), f"{dossier_id}.json")
+    if os.path.exists(path):
+        os.remove(path)
+    _save_index(user_id, [m for m in _load_index(user_id) if m["id"] != dossier_id])
+
+
+def update_dossier_meta(user_id, dossier_id, **kwargs):
+    """Update metadata fields only (name, tags, notes, eye, date_exam)."""
+    path = os.path.join(_dossiers_dir(user_id), f"{dossier_id}.json")
+    if not os.path.exists(path):
+        return
+    with open(path) as f:
+        data = json_load(f)
+    allowed = {"name", "eye", "date_exam", "pathology_tags", "notes"}
+    for k, v in kwargs.items():
+        if k in allowed:
+            data[k] = v
+    data["modified_at"] = _datetime.now().isoformat()
+    with open(path, "w") as f:
+        json_dump(data, f)
+    index = _load_index(user_id)
+    for m in index:
+        if m["id"] == dossier_id:
+            for k, v in kwargs.items():
+                if k in m:
+                    m[k] = v
+            m["modified_at"] = data["modified_at"]
+            break
+    _save_index(user_id, index)

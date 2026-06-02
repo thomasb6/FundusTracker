@@ -12,6 +12,7 @@ from auth import (
     User, init_db, get_user_by_id, verify_user, create_user,
     delete_user, update_password, get_all_users,
     get_userdata_dir, load_patient_data, save_patient_data,
+    save_dossier, list_dossiers, get_dossier, delete_dossier, update_dossier_meta,
 )
 from PIL import Image
 from dash import Dash, html, dcc, Input, Output, State, ctx, Patch
@@ -940,6 +941,135 @@ def layout_login():
     )
 
 
+PRESET_TAGS = ["DMLA", "Birdshot", "Toxoplasmose", "Hémangioblastome",
+               "Tumeur", "CNV", "Rétinite", "Glaucome", "Autre"]
+
+
+def layout_my_dossiers():
+    """Shell layout — dossiers-content populated by callback."""
+    return html.Div([
+        dbc.Container([
+            # ── Header ────────────────────────────────────────────────────────
+            html.Div([
+                html.H4("My Dossiers", className="mb-0"),
+                dbc.Button(
+                    [html.I(className="fas fa-plus me-2"), "New dossier"],
+                    id="new-dossier-btn", color="primary", size="sm",
+                ),
+            ], className="d-flex justify-content-between align-items-center my-3"),
+
+            # ── Filters ───────────────────────────────────────────────────────
+            dbc.Row([
+                dbc.Col(
+                    dbc.Input(id="dossier-search", placeholder="🔍  Search by name…",
+                              debounce=True, size="sm"),
+                    width=4,
+                ),
+                dbc.Col(
+                    dcc.Dropdown(
+                        id="dossier-filter-tag",
+                        options=[{"label": t, "value": t} for t in PRESET_TAGS],
+                        placeholder="All pathologies",
+                        multi=True, clearable=True,
+                        style={"fontSize": "0.85rem"},
+                    ), width=4,
+                ),
+                dbc.Col(
+                    dcc.Dropdown(
+                        id="dossier-filter-eye",
+                        options=[{"label": e, "value": e} for e in ["OD", "OG", "NA"]],
+                        placeholder="All eyes",
+                        clearable=True,
+                        style={"fontSize": "0.85rem"},
+                    ), width=2,
+                ),
+            ], className="mb-3 g-2"),
+
+            # ── Cards grid (populated by callback) ───────────────────────────
+            dcc.Loading(
+                html.Div(id="dossiers-content"),
+                type="default",
+            ),
+        ], fluid=True),
+    ])
+
+
+def _dossier_cards(dossiers):
+    """Build card grid from lightweight index."""
+    if not dossiers:
+        return dbc.Alert(
+            [html.I(className="fas fa-folder-open me-2"),
+             "No dossiers yet — annotate an image and click 'Save as dossier'."],
+            color="light", className="text-center",
+        )
+    cols = []
+    for d in dossiers:
+        tags = d.get("pathology_tags") or []
+        tag_badges = [
+            dbc.Badge(t, color="secondary", className="me-1", style={"fontSize": "0.7rem"})
+            for t in tags
+        ]
+        thumb = d.get("thumbnail")
+        img_el = html.Img(
+            src=thumb,
+            style={"width": "100%", "height": "110px", "objectFit": "cover",
+                   "borderRadius": "4px 4px 0 0"},
+        ) if thumb else html.Div(
+            html.I(className="fas fa-eye fa-2x text-muted"),
+            style={"height": "110px", "display": "flex", "alignItems": "center",
+                   "justifyContent": "center", "background": "#f0f0f0",
+                   "borderRadius": "4px 4px 0 0"},
+        )
+        eye_badge = dbc.Badge(
+            d.get("eye", "NA"),
+            color="info", className="me-1", style={"fontSize": "0.7rem"},
+        )
+        ann = d.get("annotation_count", 0)
+        date_str = d.get("date_exam") or d.get("modified_at", "")[:10]
+        card = dbc.Col(
+            dbc.Card([
+                img_el,
+                dbc.CardBody([
+                    html.P(
+                        d["name"],
+                        className="fw-semibold mb-1",
+                        style={"fontSize": "0.85rem", "overflow": "hidden",
+                               "textOverflow": "ellipsis", "whiteSpace": "nowrap"},
+                    ),
+                    html.Div([eye_badge, *tag_badges], className="mb-1"),
+                    html.Small(
+                        [html.I(className="fas fa-calendar me-1"), date_str,
+                         html.Span(f"  ·  {ann} zones", className="ms-2 text-muted")],
+                        className="text-muted",
+                    ),
+                    html.Div([
+                        dbc.Button(
+                            [html.I(className="fas fa-folder-open me-1"), "Open"],
+                            id={"type": "open-dossier-btn", "index": d["id"]},
+                            color="primary", size="sm", outline=True,
+                            className="me-1 mt-2",
+                        ),
+                        dbc.Button(
+                            html.I(className="fas fa-pen"),
+                            id={"type": "edit-dossier-btn", "index": d["id"]},
+                            color="secondary", size="sm", outline=True,
+                            className="me-1 mt-2", title="Edit metadata",
+                        ),
+                        dbc.Button(
+                            html.I(className="fas fa-trash"),
+                            id={"type": "delete-dossier-btn", "index": d["id"]},
+                            color="danger", size="sm", outline=True,
+                            className="mt-2", title="Delete",
+                        ),
+                    ]),
+                ], style={"padding": "8px"}),
+            ], className="h-100 shadow-sm", style={"borderRadius": "6px"}),
+            width=6, lg=4, xl=3, className="mb-3",
+        )
+        cols.append(card)
+    return dbc.Row(cols)
+
+
 def layout_admin():
     users = get_all_users()
     rows = []
@@ -1384,6 +1514,8 @@ def serve_layout(language):
                                     ],
                                     className="d-flex mb-2 w-100"  # Flexbox pour les aligner côte à côte
                                 ),
+                                # ── Dossier (visible when logged in) ──────────
+                                html.Div(id="dossier-save-section"),
                                 html.P(_("Exporter :")),
                                 dbc.Button(
                                     [
@@ -2282,6 +2414,11 @@ def serve_layout(language):
     if user and user.is_admin:
         admin_tabs = [dcc.Tab(label="⚙️ Admin", value="tab-admin", children=layout_admin())]
 
+    dossier_tabs = []
+    if user:
+        dossier_tabs = [dcc.Tab(label="📁 My Dossiers", value="tab-dossiers",
+                                children=layout_my_dossiers())]
+
     if user:
         auth_widget = html.Div(
             [
@@ -2314,6 +2451,41 @@ def serve_layout(language):
                 dbc.Button(id="open-change-password-btn", style={"display": "none"}),
             ]
         )
+
+    save_dossier_modal = dbc.Modal([
+        dbc.ModalHeader(dbc.ModalTitle("Save as dossier")),
+        dbc.ModalBody([
+            dbc.Label("Name *"),
+            dbc.Input(id="ds-name", placeholder="e.g. Birdshot OD · T0", className="mb-2"),
+            dbc.Row([
+                dbc.Col([
+                    dbc.Label("Eye"),
+                    dbc.RadioItems(
+                        id="ds-eye",
+                        options=[{"label": e, "value": e} for e in ["OD", "OG", "NA"]],
+                        value="NA", inline=True,
+                    ),
+                ], width=5),
+                dbc.Col([
+                    dbc.Label("Exam date"),
+                    dbc.Input(id="ds-date", type="date"),
+                ], width=7),
+            ], className="mb-2"),
+            dbc.Label("Pathology tags"),
+            dcc.Dropdown(
+                id="ds-tags",
+                options=[{"label": t, "value": t} for t in PRESET_TAGS],
+                multi=True, placeholder="Select or type…", className="mb-2",
+            ),
+            dbc.Label("Notes"),
+            dbc.Textarea(id="ds-notes", rows=2, placeholder="Optional notes…"),
+        ]),
+        dbc.ModalFooter([
+            dbc.Button("Cancel", id="ds-cancel", color="secondary", outline=True),
+            dbc.Button("Save", id="ds-save", color="primary"),
+        ]),
+        dcc.Store(id="ds-editing-id", data=None),
+    ], id="save-dossier-modal", is_open=False, centered=True),
 
     change_password_modal = dbc.Modal(
         [
@@ -2355,6 +2527,7 @@ def serve_layout(language):
     return html.Div(
         [
             login_modal,
+            save_dossier_modal,
             change_password_modal,
             html.Div(
                 [
@@ -2388,6 +2561,7 @@ def serve_layout(language):
                     dcc.Tab(label=_("Segmentation manuelle"), value="tab-manuelle", children=layout_manual()),
                     dcc.Tab(label=_("Suivi de patients"), value="tab-patients", children=layout_patients()),
                     dcc.Tab(label=_("FAQ & À propos"), value="tab-about", children=layout_about(language)),
+                    *dossier_tabs,
                     *admin_tabs,
                 ],
             ),
@@ -2465,6 +2639,8 @@ def serve_layout(language):
             dcc.Store(id="pre-sift-image-store", data=None),
             dcc.Store(id="patient-autosave-store", data=None),
             dcc.Store(id="last-saved-store", data=None),
+            dcc.Store(id="active-dossier-store", data=None),
+            dcc.Store(id="dossiers-refresh-trigger", data=0),
         ]
     )
 
@@ -2667,6 +2843,289 @@ def admin_delete_user(n_clicks_list):
         return dash.no_update
     delete_user(triggered["index"])
     return dbc.Alert("User deleted.", color="info", className="py-1")
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# DOSSIER CALLBACKS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ── Show/hide Save-as-dossier section in annotation panel ─────────────────────
+@app.callback(
+    Output("dossier-save-section", "children"),
+    Input("current-user-store", "data"),
+    Input("active-dossier-store", "data"),
+)
+def update_dossier_save_section(user_data, active):
+    if not current_user.is_authenticated:
+        return ""
+    if active:
+        return html.Div([
+            html.Div([
+                html.I(className="fas fa-folder-open me-1 text-primary"),
+                html.Span(active["name"], style={"fontSize": "0.8rem"},
+                          className="text-primary fw-semibold"),
+            ], className="mb-1"),
+            dbc.ButtonGroup([
+                dbc.Button(
+                    [html.I(className="fas fa-save me-1"), "Update dossier"],
+                    id="update-dossier-btn", color="primary", size="sm", outline=True,
+                    className="w-100",
+                ),
+                dbc.Button(
+                    [html.I(className="fas fa-plus me-1"), "Save as new"],
+                    id="save-as-dossier-btn", color="secondary", size="sm", outline=True,
+                ),
+            ], className="w-100 mb-2"),
+        ])
+    return html.Div([
+        dbc.Button(
+            [html.I(className="fas fa-folder-plus me-2"), "Save as dossier"],
+            id="save-as-dossier-btn", color="primary", size="sm",
+            outline=True, className="w-100 mb-2",
+        ),
+        dbc.Button(id="update-dossier-btn", style={"display": "none"}),
+    ])
+
+
+# ── Open save-dossier modal (new or edit) ─────────────────────────────────────
+@app.callback(
+    Output("save-dossier-modal", "is_open"),
+    Output("ds-name", "value"),
+    Output("ds-eye", "value"),
+    Output("ds-date", "value"),
+    Output("ds-tags", "value"),
+    Output("ds-notes", "value"),
+    Output("ds-editing-id", "data"),
+    Input("save-as-dossier-btn", "n_clicks"),
+    Input("new-dossier-btn", "n_clicks"),
+    Input({"type": "edit-dossier-btn", "index": ALL}, "n_clicks"),
+    Input("ds-cancel", "n_clicks"),
+    State("local-filename-store", "data"),
+    State("file-dropdown", "value"),
+    prevent_initial_call=True,
+)
+def open_dossier_modal(save_n, new_n, edit_clicks, cancel_n, local_fn, file_val):
+    triggered = ctx.triggered_id
+    if triggered in ("ds-cancel",):
+        return False, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
+
+    today = datetime.now().strftime("%Y-%m-%d")
+
+    # Edit existing dossier metadata
+    if isinstance(triggered, dict) and triggered.get("type") == "edit-dossier-btn":
+        if not current_user.is_authenticated or not any(edit_clicks):
+            return dash.no_update, *([dash.no_update] * 6)
+        dossier_id = triggered["index"]
+        d = get_dossier(current_user.id, dossier_id)
+        if not d:
+            return dash.no_update, *([dash.no_update] * 6)
+        return (True, d["name"], d.get("eye", "NA"), d.get("date_exam", today),
+                d.get("pathology_tags", []), d.get("notes", ""), dossier_id)
+
+    # New dossier — pre-fill name from current image
+    default_name = ""
+    if local_fn:
+        default_name = local_fn.rsplit(".", 1)[0]
+    elif file_val:
+        default_name = file_val.split("/")[-1].rsplit(".", 1)[0]
+
+    return True, default_name, "NA", today, [], "", None
+
+
+# ── Save dossier (create or update metadata) ──────────────────────────────────
+@app.callback(
+    Output("save-dossier-modal", "is_open", allow_duplicate=True),
+    Output("active-dossier-store", "data", allow_duplicate=True),
+    Output("dossiers-refresh-trigger", "data"),
+    Input("ds-save", "n_clicks"),
+    State("ds-name", "value"),
+    State("ds-eye", "value"),
+    State("ds-date", "value"),
+    State("ds-tags", "value"),
+    State("ds-notes", "value"),
+    State("ds-editing-id", "data"),
+    State("stored-shapes", "data"),
+    State("uploaded-image-store", "data"),
+    State("file-dropdown", "value"),
+    State("local-filename-store", "data"),
+    State("sift-homography-store", "data"),
+    State("dossiers-refresh-trigger", "data"),
+    prevent_initial_call=True,
+)
+def do_save_dossier(n, name, eye, date_exam, tags, notes, editing_id,
+                    shapes, uploaded_img, file_val, local_fn, M_list, trigger_val):
+    if not n or not current_user.is_authenticated:
+        return dash.no_update, dash.no_update, dash.no_update
+    if not name:
+        return dash.no_update, dash.no_update, dash.no_update
+
+    image_b64 = uploaded_img or ""
+    if not image_b64 and file_val:
+        try:
+            image_b64 = image_to_base64(file_val) or ""
+        except Exception:
+            image_b64 = ""
+
+    image_filename = local_fn or (file_val.split("/")[-1] if file_val else "")
+    tags = tags or []
+
+    if editing_id:
+        # Update metadata only (keep existing image if no new one)
+        update_dossier_meta(current_user.id, editing_id,
+                            name=name, eye=eye, date_exam=date_exam,
+                            pathology_tags=tags, notes=notes)
+        dossier_id = editing_id
+    else:
+        dossier_id = save_dossier(
+            current_user.id,
+            name=name, eye=eye, date_exam=date_exam,
+            pathology_tags=tags, notes=notes,
+            image_b64=image_b64, image_filename=image_filename,
+            annotations=shapes or [],
+            sift_applied=bool(M_list), sift_homography=M_list,
+        )
+
+    return False, {"id": dossier_id, "name": name}, (trigger_val or 0) + 1
+
+
+# ── Update dossier (one-click, no modal) ──────────────────────────────────────
+@app.callback(
+    Output("dossiers-refresh-trigger", "data", allow_duplicate=True),
+    Output("active-dossier-store", "data", allow_duplicate=True),
+    Input("update-dossier-btn", "n_clicks"),
+    State("active-dossier-store", "data"),
+    State("stored-shapes", "data"),
+    State("uploaded-image-store", "data"),
+    State("file-dropdown", "value"),
+    State("local-filename-store", "data"),
+    State("sift-homography-store", "data"),
+    State("dossiers-refresh-trigger", "data"),
+    prevent_initial_call=True,
+)
+def update_dossier(n, active, shapes, uploaded_img, file_val, local_fn, M_list, trigger_val):
+    if not n or not current_user.is_authenticated or not active:
+        return dash.no_update, dash.no_update
+    image_b64 = uploaded_img or ""
+    if not image_b64 and file_val:
+        try:
+            image_b64 = image_to_base64(file_val) or ""
+        except Exception:
+            image_b64 = ""
+    image_filename = local_fn or (file_val.split("/")[-1] if file_val else "")
+    save_dossier(
+        current_user.id,
+        dossier_id=active["id"],
+        name=active["name"],
+        image_b64=image_b64, image_filename=image_filename,
+        annotations=shapes or [],
+        sift_applied=bool(M_list), sift_homography=M_list,
+    )
+    return (trigger_val or 0) + 1, active
+
+
+# ── Populate dossiers grid ────────────────────────────────────────────────────
+@app.callback(
+    Output("dossiers-content", "children"),
+    Input("dossiers-refresh-trigger", "data"),
+    Input("tabs", "value"),
+    Input("dossier-search", "value"),
+    Input("dossier-filter-tag", "value"),
+    Input("dossier-filter-eye", "value"),
+    prevent_initial_call=True,
+)
+def refresh_dossiers_grid(trigger, active_tab, search, tag_filter, eye_filter):
+    if active_tab != "tab-dossiers" or not current_user.is_authenticated:
+        return dash.no_update
+    dossiers = list_dossiers(current_user.id)
+    if search:
+        q = search.lower()
+        dossiers = [d for d in dossiers if q in d["name"].lower()]
+    if tag_filter:
+        dossiers = [d for d in dossiers
+                    if any(t in (d.get("pathology_tags") or []) for t in tag_filter)]
+    if eye_filter:
+        dossiers = [d for d in dossiers if d.get("eye") == eye_filter]
+    return _dossier_cards(dossiers)
+
+
+# ── Open dossier → load into annotation tab ───────────────────────────────────
+@app.callback(
+    Output("uploaded-image-store", "data", allow_duplicate=True),
+    Output("stored-shapes", "data", allow_duplicate=True),
+    Output("active-dossier-store", "data", allow_duplicate=True),
+    Output("tabs", "value", allow_duplicate=True),
+    Output("file-dropdown", "value", allow_duplicate=True),
+    Output("local-filename-store", "data", allow_duplicate=True),
+    Input({"type": "open-dossier-btn", "index": ALL}, "n_clicks"),
+    prevent_initial_call=True,
+)
+def open_dossier_cb(n_clicks_list):
+    if not current_user.is_authenticated or not any(n_clicks_list):
+        return (dash.no_update,) * 6
+    triggered = ctx.triggered_id
+    if not triggered:
+        return (dash.no_update,) * 6
+    d = get_dossier(current_user.id, triggered["index"])
+    if not d:
+        return (dash.no_update,) * 6
+    return (
+        d.get("image_b64") or dash.no_update,
+        d.get("annotations") or [],
+        {"id": d["id"], "name": d["name"]},
+        "tab-manuelle",
+        None,
+        d.get("image_filename") or None,
+    )
+
+
+# ── Delete dossier ─────────────────────────────────────────────────────────────
+@app.callback(
+    Output("dossiers-refresh-trigger", "data", allow_duplicate=True),
+    Output("active-dossier-store", "data", allow_duplicate=True),
+    Input({"type": "delete-dossier-btn", "index": ALL}, "n_clicks"),
+    State("active-dossier-store", "data"),
+    State("dossiers-refresh-trigger", "data"),
+    prevent_initial_call=True,
+)
+def delete_dossier_cb(n_clicks_list, active, trigger_val):
+    if not current_user.is_authenticated or not any(n_clicks_list):
+        return dash.no_update, dash.no_update
+    triggered = ctx.triggered_id
+    if not triggered:
+        return dash.no_update, dash.no_update
+    dossier_id = triggered["index"]
+    delete_dossier(current_user.id, dossier_id)
+    new_active = None if (active and active.get("id") == dossier_id) else active
+    return (trigger_val or 0) + 1, new_active
+
+
+# ── New dossier button → go to annotation tab with clean state ─────────────────
+@app.callback(
+    Output("tabs", "value", allow_duplicate=True),
+    Output("stored-shapes", "data", allow_duplicate=True),
+    Output("uploaded-image-store", "data", allow_duplicate=True),
+    Output("file-dropdown", "value", allow_duplicate=True),
+    Output("active-dossier-store", "data", allow_duplicate=True),
+    Input("new-dossier-btn", "n_clicks"),
+    prevent_initial_call=True,
+)
+def new_dossier_btn(n):
+    if not n:
+        return (dash.no_update,) * 5
+    return "tab-manuelle", [], None, None, None
+
+
+# ── Trigger grid refresh when tab opens for first time ───────────────────────
+@app.callback(
+    Output("dossiers-refresh-trigger", "data", allow_duplicate=True),
+    Input("tabs", "value"),
+    State("dossiers-refresh-trigger", "data"),
+    prevent_initial_call=True,
+)
+def trigger_refresh_on_tab_open(active_tab, current_val):
+    if active_tab == "tab-dossiers":
+        return (current_val or 0) + 1
+    return dash.no_update
 
 
 @app.callback(
