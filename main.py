@@ -2913,31 +2913,24 @@ def download_annotations(n_clicks, stored_shapes, file_val, local_filename, M_li
     if not stored_shapes:
         return dash.no_update
 
-    if M_list:
-        shapes_original = transform_shapes_to_original(stored_shapes, M_list)
-        export = {
-            "metadata": {
-                "sift_applied": True,
-                "sift_homography": M_list,
-            },
-            "shapes_sift": stored_shapes,
-            "shapes_original": shapes_original,
-        }
-    else:
-        export = {"metadata": {"sift_applied": False}, "shapes": stored_shapes}
-
-    content = json.dumps(export, indent=2)
-
     if file_val:
         base_name = file_val.split("/")[-1].rsplit(".", 1)[0]
-        filename = f"{base_name}.json"
     elif local_filename:
         base_name = local_filename.rsplit(".", 1)[0]
-        filename = f"{base_name}.json"
     else:
-        filename = "annotations.json"
+        base_name = "annotations"
 
-    return dcc.send_string(content, filename)
+    if M_list:
+        # Two JSON files in a ZIP: one per coordinate space, both with plain shape arrays
+        shapes_original = transform_shapes_to_original(stored_shapes, M_list)
+        buf = io_buffer.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr(f"{base_name}_sift.json",     json.dumps(stored_shapes,  indent=2))
+            zf.writestr(f"{base_name}_original.json", json.dumps(shapes_original, indent=2))
+        buf.seek(0)
+        return dcc.send_bytes(buf.read, f"{base_name}_annotations.zip")
+    else:
+        return dcc.send_string(json.dumps(stored_shapes, indent=2), f"{base_name}.json")
 
 
 @app.callback(
