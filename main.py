@@ -845,7 +845,7 @@ filenames = get_filenames()
 
 
 app.layout = html.Div(
-    [dcc.Store(id="language-store", data="fr"), html.Div(id="page-content")]
+    [dcc.Store(id="language-store", data="en"), html.Div(id="page-content")]
 )
 
 
