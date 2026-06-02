@@ -2484,8 +2484,7 @@ def serve_layout(language):
             dbc.Button("Cancel", id="ds-cancel", color="secondary", outline=True),
             dbc.Button("Save", id="ds-save", color="primary"),
         ]),
-        dcc.Store(id="ds-editing-id", data=None),
-    ], id="save-dossier-modal", is_open=False, centered=True),
+    ], id="save-dossier-modal", is_open=False, centered=True)
 
     change_password_modal = dbc.Modal(
         [
@@ -2641,6 +2640,7 @@ def serve_layout(language):
             dcc.Store(id="last-saved-store", data=None),
             dcc.Store(id="active-dossier-store", data=None),
             dcc.Store(id="dossiers-refresh-trigger", data=0),
+            dcc.Store(id="ds-editing-id", data=None),
         ]
     )
 
