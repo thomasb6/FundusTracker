@@ -13,6 +13,7 @@ from auth import (
     delete_user, update_password, get_all_users,
     get_userdata_dir, load_patient_data, save_patient_data,
     save_dossier, list_dossiers, get_dossier, delete_dossier, update_dossier_meta,
+    get_user_stats, get_recent_patients, list_dossiers_for_patient,
 )
 from PIL import Image
 from dash import Dash, html, dcc, Input, Output, State, ctx, Patch
@@ -947,28 +948,51 @@ PRESET_TAGS = ["DMLA", "Birdshot", "Toxoplasmose", "Hémangioblastome",
 
 def layout_my_dossiers():
     """Shell layout — dossiers-content populated by callback."""
+    # Build patient options for the filter dropdown
+    _patient_opts = []
+    try:
+        from flask_login import current_user as _cu
+        if _cu.is_authenticated:
+            _pts = load_patient_data(_cu.id)
+            _patient_opts = [
+                {"label": pid.replace("_", " "), "value": pid}
+                for pid in sorted(_pts.keys())
+            ]
+    except Exception:
+        pass
+
     return html.Div([
         dbc.Container([
-            # ── Header ────────────────────────────────────────────────────────
+            # ── Header with export cohort ──────────────────────────────────────
             html.Div([
                 html.H4("My Dossiers", className="mb-0"),
+                dbc.Button(
+                    [html.I(className="fas fa-download me-1"), "Export cohort"],
+                    id="export-cohort-btn",
+                    color="success", size="sm", outline=True,
+                    title="Download filtered dossiers as ZIP (images + annotations)",
+                ),
             ], className="d-flex justify-content-between align-items-center my-3"),
+            dcc.Download(id="download-cohort-zip"),
+
             dbc.Alert(
                 [html.I(className="fas fa-lightbulb me-2"),
                  "To create a dossier: open an image in ",
                  html.Strong("Manual Segmentation"),
                  ", annotate it, then click ",
                  html.Strong("Save as dossier"),
-                 "."],
+                 ". Use ",
+                 html.Strong("Link to patient"),
+                 " to connect it to a patient record."],
                 color="light", className="py-2 mb-3", style={"fontSize": "0.85rem"},
             ),
 
             # ── Filters ───────────────────────────────────────────────────────
             dbc.Row([
                 dbc.Col(
-                    dbc.Input(id="dossier-search", placeholder="🔍  Search by name…",
+                    dbc.Input(id="dossier-search", placeholder="🔍  Search by name or patient…",
                               debounce=True, size="sm"),
-                    width=4,
+                    width=3,
                 ),
                 dbc.Col(
                     dcc.Dropdown(
@@ -976,6 +1000,15 @@ def layout_my_dossiers():
                         options=[{"label": t, "value": t} for t in PRESET_TAGS],
                         placeholder="All pathologies",
                         multi=True, clearable=True,
+                        style={"fontSize": "0.85rem"},
+                    ), width=3,
+                ),
+                dbc.Col(
+                    dcc.Dropdown(
+                        id="dossier-filter-patient",
+                        options=_patient_opts,
+                        placeholder="All patients",
+                        clearable=True,
                         style={"fontSize": "0.85rem"},
                     ), width=4,
                 ),
@@ -1031,6 +1064,27 @@ def _dossier_cards(dossiers):
         )
         ann = d.get("annotation_count", 0)
         date_str = d.get("date_exam") or d.get("modified_at", "")[:10]
+
+        patient_badge = None
+        go_to_patient_btn = None
+        if d.get("patient_name") or d.get("patient_id"):
+            pname = d.get("patient_name") or (d["patient_id"].replace("_", " ") if d.get("patient_id") else "")
+            patient_badge = dbc.Badge(
+                [html.I(className="fas fa-user me-1"), pname],
+                color="primary", className="me-1 mb-1",
+                style={"fontSize": "0.68rem", "maxWidth": "120px",
+                       "overflow": "hidden", "textOverflow": "ellipsis",
+                       "display": "inline-block", "verticalAlign": "middle"},
+                title=pname,
+            )
+            go_to_patient_btn = dbc.Button(
+                [html.I(className="fas fa-user-injured me-1"), "Patient"],
+                id={"type": "goto-patient-from-dossier-btn", "index": d["patient_id"]},
+                color="primary", size="sm", outline=True,
+                className="me-1 mt-2", title=f"Go to patient: {pname}",
+                style={"fontSize": "0.75rem"},
+            )
+
         card = dbc.Col(
             dbc.Card([
                 img_el,
@@ -1041,7 +1095,10 @@ def _dossier_cards(dossiers):
                         style={"fontSize": "0.85rem", "overflow": "hidden",
                                "textOverflow": "ellipsis", "whiteSpace": "nowrap"},
                     ),
-                    html.Div([eye_badge, *tag_badges], className="mb-1"),
+                    html.Div(
+                        ([patient_badge] if patient_badge else []) + [eye_badge] + tag_badges,
+                        className="mb-1",
+                    ),
                     html.Small(
                         [html.I(className="fas fa-calendar me-1"), date_str,
                          html.Span(f"  ·  {ann} zones", className="ms-2 text-muted")],
@@ -1054,6 +1111,7 @@ def _dossier_cards(dossiers):
                             color="primary", size="sm", outline=True,
                             className="me-1 mt-2",
                         ),
+                        *(([go_to_patient_btn]) if go_to_patient_btn else []),
                         dbc.Button(
                             html.I(className="fas fa-pen"),
                             id={"type": "edit-dossier-btn", "index": d["id"]},
@@ -1073,6 +1131,32 @@ def _dossier_cards(dossiers):
         )
         cols.append(card)
     return dbc.Row(cols)
+
+
+def _dossier_grid_with_stats(dossiers, user_id):
+    """Build stats banner + card grid."""
+    n = len(dossiers)
+    total_ann = sum(d.get("annotation_count", 0) for d in dossiers)
+    tag_counts: dict = {}
+    for d in dossiers:
+        for t in d.get("pathology_tags") or []:
+            tag_counts[t] = tag_counts.get(t, 0) + 1
+    top_tags = sorted(tag_counts.items(), key=lambda x: -x[1])[:4]
+
+    stat_items = [
+        html.Span([html.Strong(str(n)), f" dossier{'s' if n != 1 else ''}"],
+                  className="me-3 text-muted", style={"fontSize": "0.82rem"}),
+        html.Span([html.Strong(str(total_ann)), " annotation zones"],
+                  className="me-3 text-muted", style={"fontSize": "0.82rem"}),
+    ]
+    for tag, cnt in top_tags:
+        stat_items.append(
+            dbc.Badge(f"{tag} ×{cnt}", color="secondary", className="me-1",
+                      style={"fontSize": "0.72rem"})
+        )
+
+    banner = html.Div(stat_items, className="mb-2 d-flex flex-wrap align-items-center")
+    return html.Div([banner, _dossier_cards(dossiers)])
 
 
 def layout_admin():
@@ -2234,6 +2318,30 @@ def serve_layout(language):
                                         style={"padding": "15px"},
                                     ),
                                 ),
+                                dcc.Tab(
+                                    label=_("Dossiers liés"),
+                                    value="sub-tab-linked-dossiers",
+                                    children=html.Div(
+                                        [
+                                            html.P(
+                                                [
+                                                    _("Dossiers My Dossiers reliés à ce patient. "),
+                                                    html.Small(
+                                                        _("Pour lier un dossier, utilisez 'Link to patient' lors de la sauvegarde."),
+                                                        className="text-muted",
+                                                    ),
+                                                ],
+                                                className="mt-3 mb-2",
+                                                style={"fontSize": "0.88rem"},
+                                            ),
+                                            dcc.Loading(
+                                                html.Div(id="patient-linked-dossiers"),
+                                                type="default",
+                                            ),
+                                        ],
+                                        style={"padding": "15px"},
+                                    ),
+                                ),
                             ],
                         ),
                     ],
@@ -2425,22 +2533,94 @@ def serve_layout(language):
                                 children=layout_my_dossiers())]
 
     if user:
+        try:
+            _stats = get_user_stats(user.id)
+            _recent = get_recent_patients(user.id, n=5)
+        except Exception:
+            _stats = {"n_patients": 0, "n_dossiers": 0, "n_exams": 0, "tag_counts": {}}
+            _recent = []
+
+        _recent_items = []
+        for p in _recent:
+            _recent_items.append(
+                dbc.DropdownMenuItem(
+                    [
+                        html.Span(p["label"], style={"fontWeight": "500"}),
+                        html.Span(
+                            f"  {p['n_exams']} exam{'s' if p['n_exams'] != 1 else ''}",
+                            className="text-muted ms-1",
+                            style={"fontSize": "0.75rem"},
+                        ),
+                    ],
+                    id={"type": "recent-patient-link", "index": p["id"]},
+                    n_clicks=0,
+                    style={"fontSize": "0.82rem", "padding": "4px 12px", "cursor": "pointer"},
+                )
+            )
+
+        _top_tags = sorted(_stats.get("tag_counts", {}).items(), key=lambda x: -x[1])[:3]
+        _tag_str = "  ·  ".join(f"{t} ({n})" for t, n in _top_tags) if _top_tags else "—"
+
+        _dropdown_menu = dbc.DropdownMenu(
+            label=[html.I(className="fas fa-user-circle me-1"), user.username],
+            color="light",
+            size="sm",
+            toggle_style={"fontSize": "0.85rem", "border": "1px solid #dee2e6"},
+            children=[
+                dbc.DropdownMenuItem(
+                    [
+                        html.Div([
+                            html.Span(
+                                f"{_stats['n_patients']} patient{'s' if _stats['n_patients'] != 1 else ''}",
+                                className="badge bg-secondary me-1",
+                            ),
+                            html.Span(
+                                f"{_stats['n_dossiers']} dossier{'s' if _stats['n_dossiers'] != 1 else ''}",
+                                className="badge bg-info me-1",
+                            ),
+                            html.Span(
+                                f"{_stats['n_exams']} exam{'s' if _stats['n_exams'] != 1 else ''}",
+                                className="badge bg-primary",
+                            ),
+                        ], className="mb-1"),
+                        html.Div(
+                            _tag_str,
+                            style={"fontSize": "0.72rem", "color": "#888"},
+                        ),
+                    ],
+                    header=False,
+                    style={"padding": "6px 12px", "pointerEvents": "none", "background": "#f8f9fa"},
+                ),
+                dbc.DropdownMenuItem(divider=True),
+                *(
+                    [
+                        dbc.DropdownMenuItem(
+                            "Recent patients",
+                            header=True,
+                            style={"fontSize": "0.75rem", "color": "#888", "paddingBottom": "2px"},
+                        ),
+                        *_recent_items,
+                        dbc.DropdownMenuItem(divider=True),
+                    ]
+                    if _recent_items else []
+                ),
+                dbc.DropdownMenuItem(
+                    [html.I(className="fas fa-key me-2"), "Change password"],
+                    id="open-change-password-btn",
+                    style={"fontSize": "0.82rem"},
+                ),
+                dbc.DropdownMenuItem(
+                    [html.I(className="fas fa-sign-out-alt me-2"), "Logout"],
+                    id="logout-btn",
+                    style={"fontSize": "0.82rem", "color": "#dc3545"},
+                ),
+            ],
+            align_end=True,
+        )
+
         auth_widget = html.Div(
             [
-                html.Span(
-                    [html.I(className="fas fa-user-circle me-1"), user.username],
-                    className="text-muted fw-semibold",
-                    style={"fontSize": "0.85rem"},
-                ),
-                dbc.Button(
-                    html.I(className="fas fa-key"),
-                    id="open-change-password-btn", color="light", size="sm",
-                    outline=True, title="Change password",
-                ),
-                dbc.Button(
-                    [html.I(className="fas fa-sign-out-alt me-1"), "Logout"],
-                    id="logout-btn", color="light", size="sm", outline=True,
-                ),
+                _dropdown_menu,
                 dbc.Button(id="open-login-modal-btn", style={"display": "none"}),
             ],
             style={"display": "flex", "alignItems": "center", "gap": "6px"},
@@ -2456,6 +2636,18 @@ def serve_layout(language):
                 dbc.Button(id="open-change-password-btn", style={"display": "none"}),
             ]
         )
+
+    # Build patient options for the patient picker in the modal
+    _patient_options = []
+    if user:
+        try:
+            _pts = load_patient_data(user.id)
+            _patient_options = [
+                {"label": pid.replace("_", " "), "value": pid}
+                for pid in sorted(_pts.keys())
+            ]
+        except Exception:
+            pass
 
     save_dossier_modal = dbc.Modal([
         dbc.ModalHeader(dbc.ModalTitle("Save as dossier")),
@@ -2481,6 +2673,15 @@ def serve_layout(language):
                 id="ds-tags",
                 options=[{"label": t, "value": t} for t in PRESET_TAGS],
                 multi=True, placeholder="Select or type…", className="mb-2",
+            ),
+            dbc.Label("Link to patient (optional)"),
+            dcc.Dropdown(
+                id="ds-patient",
+                options=_patient_options,
+                placeholder="No patient link",
+                clearable=True,
+                className="mb-2",
+                style={"fontSize": "0.85rem"},
             ),
             dbc.Label("Notes"),
             dbc.Textarea(id="ds-notes", rows=2, placeholder="Optional notes…"),
@@ -2662,6 +2863,7 @@ def serve_layout(language):
             dcc.Store(id="dossiers-refresh-trigger", data=0),
             dcc.Store(id="ds-editing-id", data=None),
             dcc.Store(id="delete-confirm-id", data=None),
+            dcc.Store(id="ds-prefill-patient", data=None),
         ]
     )
 
@@ -2926,42 +3128,45 @@ def update_dossier_save_section(user_data, active):
     Output("ds-tags", "value"),
     Output("ds-notes", "value"),
     Output("ds-editing-id", "data"),
+    Output("ds-patient", "value"),
     Input("save-as-dossier-btn", "n_clicks"),
     Input({"type": "edit-dossier-btn", "index": ALL}, "n_clicks"),
     Input("ds-cancel", "n_clicks"),
     State("local-filename-store", "data"),
     State("file-dropdown", "value"),
+    State("ds-prefill-patient", "data"),
     prevent_initial_call=True,
 )
-def open_dossier_modal(save_n, edit_clicks, cancel_n, local_fn, file_val):
+def open_dossier_modal(save_n, edit_clicks, cancel_n, local_fn, file_val, prefill_patient):
     # Guard: ignore spurious triggers with n_clicks=0
     if not ctx.triggered or not ctx.triggered[0].get("value"):
-        return (dash.no_update,) * 7
+        return (dash.no_update,) * 8
     triggered = ctx.triggered_id
     if triggered == "ds-cancel":
-        return False, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
+        return False, *([dash.no_update] * 7)
 
     today = datetime.now().strftime("%Y-%m-%d")
 
     # Edit existing dossier metadata
     if isinstance(triggered, dict) and triggered.get("type") == "edit-dossier-btn":
         if not current_user.is_authenticated or not any(edit_clicks):
-            return dash.no_update, *([dash.no_update] * 6)
+            return dash.no_update, *([dash.no_update] * 7)
         dossier_id = triggered["index"]
         d = get_dossier(current_user.id, dossier_id)
         if not d:
-            return dash.no_update, *([dash.no_update] * 6)
+            return dash.no_update, *([dash.no_update] * 7)
         return (True, d["name"], d.get("eye", "NA"), d.get("date_exam", today),
-                d.get("pathology_tags", []), d.get("notes", ""), dossier_id)
+                d.get("pathology_tags", []), d.get("notes", ""), dossier_id,
+                d.get("patient_id"))
 
-    # New dossier — pre-fill name from current image
+    # New dossier — pre-fill name from current image; patient from prefill store
     default_name = ""
     if local_fn:
         default_name = local_fn.rsplit(".", 1)[0]
     elif file_val:
         default_name = file_val.split("/")[-1].rsplit(".", 1)[0]
 
-    return True, default_name, "NA", today, [], "", None
+    return True, default_name, "NA", today, [], "", None, prefill_patient
 
 
 # ── Save dossier (create or update metadata) ──────────────────────────────────
@@ -2976,6 +3181,7 @@ def open_dossier_modal(save_n, edit_clicks, cancel_n, local_fn, file_val):
     State("ds-tags", "value"),
     State("ds-notes", "value"),
     State("ds-editing-id", "data"),
+    State("ds-patient", "value"),
     State("stored-shapes", "data"),
     State("uploaded-image-store", "data"),
     State("file-dropdown", "value"),
@@ -2984,7 +3190,7 @@ def open_dossier_modal(save_n, edit_clicks, cancel_n, local_fn, file_val):
     State("dossiers-refresh-trigger", "data"),
     prevent_initial_call=True,
 )
-def do_save_dossier(n, name, eye, date_exam, tags, notes, editing_id,
+def do_save_dossier(n, name, eye, date_exam, tags, notes, editing_id, patient_id,
                     shapes, uploaded_img, file_val, local_fn, M_list, trigger_val):
     if not n or not current_user.is_authenticated:
         return dash.no_update, dash.no_update, dash.no_update
@@ -3001,11 +3207,17 @@ def do_save_dossier(n, name, eye, date_exam, tags, notes, editing_id,
     image_filename = local_fn or (file_val.split("/")[-1] if file_val else "")
     tags = tags or []
 
+    # Derive human-readable patient name from patient_id key
+    patient_name = None
+    if patient_id:
+        parts = patient_id.split("_")
+        patient_name = " ".join(parts[:2]) if len(parts) >= 2 else patient_id
+
     if editing_id:
-        # Update metadata only (keep existing image if no new one)
         update_dossier_meta(current_user.id, editing_id,
                             name=name, eye=eye, date_exam=date_exam,
-                            pathology_tags=tags, notes=notes)
+                            pathology_tags=tags, notes=notes,
+                            patient_id=patient_id, patient_name=patient_name)
         dossier_id = editing_id
     else:
         dossier_id = save_dossier(
@@ -3015,6 +3227,7 @@ def do_save_dossier(n, name, eye, date_exam, tags, notes, editing_id,
             image_b64=image_b64, image_filename=image_filename,
             annotations=shapes or [],
             sift_applied=bool(M_list), sift_homography=M_list,
+            patient_id=patient_id, patient_name=patient_name,
         )
 
     return False, {"id": dossier_id, "name": name}, (trigger_val or 0) + 1
@@ -3055,6 +3268,34 @@ def update_dossier(n, active, shapes, uploaded_img, file_val, local_fn, M_list, 
     return (trigger_val or 0) + 1, active
 
 
+# ── Pre-fill patient link when opening dossier modal ─────────────────────────
+@app.callback(
+    Output("ds-prefill-patient", "data"),
+    Input("longitudinal-active-patient-store", "data"),
+    prevent_initial_call=True,
+)
+def prefill_patient_for_dossier(active_patient):
+    # Keep prefill store in sync with active patient so modal auto-fills
+    return active_patient
+
+
+# ── Navigate to patient from account dropdown recent links ────────────────────
+@app.callback(
+    Output("longitudinal-active-patient-store", "data", allow_duplicate=True),
+    Output("tabs", "value", allow_duplicate=True),
+    Input({"type": "recent-patient-link", "index": ALL}, "n_clicks"),
+    prevent_initial_call=True,
+)
+def navigate_to_recent_patient(n_clicks_list):
+    if not any(n_clicks_list):
+        return dash.no_update, dash.no_update
+    triggered = ctx.triggered_id
+    if not triggered:
+        return dash.no_update, dash.no_update
+    patient_id = triggered["index"]
+    return patient_id, "tab-patients"
+
+
 # ── Populate dossiers grid ────────────────────────────────────────────────────
 @app.callback(
     Output("dossiers-content", "children"),
@@ -3063,21 +3304,125 @@ def update_dossier(n, active, shapes, uploaded_img, file_val, local_fn, M_list, 
     Input("dossier-search", "value"),
     Input("dossier-filter-tag", "value"),
     Input("dossier-filter-eye", "value"),
+    Input("dossier-filter-patient", "value"),
     prevent_initial_call=True,
 )
-def refresh_dossiers_grid(trigger, active_tab, search, tag_filter, eye_filter):
+def refresh_dossiers_grid(trigger, active_tab, search, tag_filter, eye_filter, patient_filter):
     if active_tab != "tab-dossiers" or not current_user.is_authenticated:
         return dash.no_update
     dossiers = list_dossiers(current_user.id)
     if search:
         q = search.lower()
-        dossiers = [d for d in dossiers if q in d["name"].lower()]
+        dossiers = [d for d in dossiers if q in d["name"].lower()
+                    or q in (d.get("patient_name") or "").lower()]
     if tag_filter:
         dossiers = [d for d in dossiers
                     if any(t in (d.get("pathology_tags") or []) for t in tag_filter)]
     if eye_filter:
         dossiers = [d for d in dossiers if d.get("eye") == eye_filter]
-    return _dossier_cards(dossiers)
+    if patient_filter:
+        dossiers = [d for d in dossiers if d.get("patient_id") == patient_filter]
+    return _dossier_grid_with_stats(dossiers, current_user.id)
+
+
+# ── Go to patient from dossier card ──────────────────────────────────────────
+@app.callback(
+    Output("longitudinal-active-patient-store", "data", allow_duplicate=True),
+    Output("tabs", "value", allow_duplicate=True),
+    Input({"type": "goto-patient-from-dossier-btn", "index": ALL}, "n_clicks"),
+    prevent_initial_call=True,
+)
+def goto_patient_from_dossier(n_clicks_list):
+    if not any(n_clicks_list):
+        return dash.no_update, dash.no_update
+    triggered = ctx.triggered_id
+    if not triggered:
+        return dash.no_update, dash.no_update
+    return triggered["index"], "tab-patients"
+
+
+# ── Export cohort as ZIP ──────────────────────────────────────────────────────
+@app.callback(
+    Output("download-cohort-zip", "data"),
+    Input("export-cohort-btn", "n_clicks"),
+    State("dossier-search", "value"),
+    State("dossier-filter-tag", "value"),
+    State("dossier-filter-eye", "value"),
+    State("dossier-filter-patient", "value"),
+    prevent_initial_call=True,
+)
+def export_cohort_zip(n, search, tag_filter, eye_filter, patient_filter):
+    if not n or not current_user.is_authenticated:
+        return dash.no_update
+    dossiers_meta = list_dossiers(current_user.id)
+    if search:
+        q = search.lower()
+        dossiers_meta = [d for d in dossiers_meta if q in d["name"].lower()
+                         or q in (d.get("patient_name") or "").lower()]
+    if tag_filter:
+        dossiers_meta = [d for d in dossiers_meta
+                         if any(t in (d.get("pathology_tags") or []) for t in tag_filter)]
+    if eye_filter:
+        dossiers_meta = [d for d in dossiers_meta if d.get("eye") == eye_filter]
+    if patient_filter:
+        dossiers_meta = [d for d in dossiers_meta if d.get("patient_id") == patient_filter]
+
+    buf = io_buffer.BytesIO()
+    csv_rows = []
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for meta in dossiers_meta:
+            d = get_dossier(current_user.id, meta["id"])
+            if not d:
+                continue
+            safe_name = re.sub(r"[^\w\-.]", "_", d["name"])[:40]
+            folder = f"{safe_name}_{d['id'][:8]}"
+
+            # Save image
+            img_b64 = d.get("image_b64", "")
+            if img_b64 and "," in img_b64:
+                ext = img_b64.split(";")[0].split("/")[-1]
+                raw = base64.b64decode(img_b64.split(",", 1)[1])
+                zf.writestr(f"{folder}/image.{ext}", raw)
+
+            # Save annotations JSON
+            ann_data = {
+                "dossier_id": d["id"],
+                "name": d["name"],
+                "patient_id": d.get("patient_id"),
+                "patient_name": d.get("patient_name"),
+                "eye": d.get("eye"),
+                "date_exam": d.get("date_exam"),
+                "pathology_tags": d.get("pathology_tags"),
+                "notes": d.get("notes"),
+                "annotations": d.get("annotations", []),
+            }
+            zf.writestr(f"{folder}/annotations.json", json.dumps(ann_data, indent=2))
+
+            csv_rows.append({
+                "id": d["id"],
+                "name": d["name"],
+                "patient_id": d.get("patient_id", ""),
+                "patient_name": d.get("patient_name", ""),
+                "eye": d.get("eye", ""),
+                "date_exam": d.get("date_exam", ""),
+                "pathology_tags": "|".join(d.get("pathology_tags") or []),
+                "annotation_count": len(d.get("annotations", [])),
+                "notes": d.get("notes", ""),
+            })
+
+        # Write cohort CSV summary
+        if csv_rows:
+            import csv as _csv
+            csv_buf = io_buffer.StringIO()
+            writer = _csv.DictWriter(csv_buf, fieldnames=list(csv_rows[0].keys()))
+            writer.writeheader()
+            writer.writerows(csv_rows)
+            zf.writestr("cohort_summary.csv", csv_buf.getvalue())
+
+    buf.seek(0)
+    from datetime import datetime as _dt
+    fname = f"cohort_{_dt.now().strftime('%Y%m%d_%H%M%S')}.zip"
+    return dcc.send_bytes(buf.read(), fname)
 
 
 # ── Open dossier → load into annotation tab ───────────────────────────────────
@@ -5321,6 +5666,31 @@ def save_annotation_to_patient(
     return all_series_updated, dbc.Alert(
         _("Annotation sauvegardée !"), color="success", duration=2000
     )
+
+
+# ── Dossiers liés au patient actif ───────────────────────────────────────────
+@app.callback(
+    Output("patient-linked-dossiers", "children"),
+    Input("longitudinal-active-patient-store", "data"),
+    Input("patient-sub-tabs", "value"),
+    Input("dossiers-refresh-trigger", "data"),
+    prevent_initial_call=True,
+)
+def update_patient_linked_dossiers(active_patient_id, sub_tab, _refresh):
+    if sub_tab != "sub-tab-linked-dossiers":
+        return dash.no_update
+    if not current_user.is_authenticated or not active_patient_id:
+        return dbc.Alert("No patient selected.", color="light", className="text-center")
+    linked = list_dossiers_for_patient(current_user.id, active_patient_id)
+    if not linked:
+        return dbc.Alert(
+            [
+                html.I(className="fas fa-info-circle me-2"),
+                "No linked dossiers yet. When saving a dossier, choose this patient in 'Link to patient'.",
+            ],
+            color="light", className="text-center", style={"fontSize": "0.85rem"},
+        )
+    return _dossier_cards(linked)
 
 
 @app.callback(

@@ -136,6 +136,55 @@ def save_patient_data(user_id, data):
         json_dump(data, f)
 
 
+# ── Patient analytics helpers ──────────────────────────────────────────────────
+def get_recent_patients(user_id, n=5):
+    """Return up to n recently modified patients as list of {id, label, last_exam, n_exams}."""
+    patients = load_patient_data(user_id)
+    summaries = []
+    for patient_id, records in patients.items():
+        if not records:
+            continue
+        last_date = max(
+            (r.get("saved_at") or r.get("exam_date") or "" for r in records),
+            default="",
+        )
+        parts = patient_id.split("_")
+        label = " ".join(parts[:2]) if len(parts) >= 2 else patient_id
+        summaries.append({
+            "id": patient_id,
+            "label": label,
+            "last_modified": last_date,
+            "n_exams": len(records),
+        })
+    summaries.sort(key=lambda x: x["last_modified"], reverse=True)
+    return summaries[:n]
+
+
+def get_user_stats(user_id):
+    """Return aggregate stats dict for the user's data."""
+    patients = load_patient_data(user_id)
+    n_patients = len(patients)
+    n_exams = sum(len(v) for v in patients.values())
+    n_annotations = sum(
+        len(r.get("shapes", [])) for records in patients.values() for r in records
+    )
+    dossiers = _load_index(user_id)
+    n_dossiers = len(dossiers)
+    n_dossier_annotations = sum(d.get("annotation_count", 0) for d in dossiers)
+    tag_counts: dict = {}
+    for d in dossiers:
+        for t in d.get("pathology_tags") or []:
+            tag_counts[t] = tag_counts.get(t, 0) + 1
+    return {
+        "n_patients": n_patients,
+        "n_exams": n_exams,
+        "n_annotations": n_annotations,
+        "n_dossiers": n_dossiers,
+        "n_dossier_annotations": n_dossier_annotations,
+        "tag_counts": tag_counts,
+    }
+
+
 # ── Dossier storage ────────────────────────────────────────────────────────────
 def _dossiers_dir(user_id):
     path = os.path.join(get_userdata_dir(user_id), "dossiers")
@@ -176,7 +225,8 @@ def _make_thumbnail(image_b64, width=160):
 
 def save_dossier(user_id, *, dossier_id=None, name="", eye="NA", date_exam="",
                  pathology_tags=None, notes="", image_b64="", image_filename="",
-                 annotations=None, sift_applied=False, sift_homography=None):
+                 annotations=None, sift_applied=False, sift_homography=None,
+                 patient_id=None, patient_name=None):
     """Create or update a dossier. Returns dossier_id."""
     now = _datetime.now().isoformat()
     is_new = dossier_id is None
@@ -203,6 +253,8 @@ def save_dossier(user_id, *, dossier_id=None, name="", eye="NA", date_exam="",
         "annotations": annotations if annotations is not None else existing.get("annotations", []),
         "sift_applied": sift_applied,
         "sift_homography": sift_homography,
+        "patient_id": patient_id or existing.get("patient_id") or None,
+        "patient_name": patient_name or existing.get("patient_name") or None,
     }
 
     with open(dossier_path, "w") as f:
@@ -221,6 +273,8 @@ def save_dossier(user_id, *, dossier_id=None, name="", eye="NA", date_exam="",
         "annotation_count": len(data["annotations"]),
         "image_filename": data["image_filename"],
         "thumbnail": thumb,
+        "patient_id": data["patient_id"],
+        "patient_name": data["patient_name"],
     }
     index = [m for m in _load_index(user_id) if m["id"] != dossier_id]
     index.insert(0, meta)
@@ -233,6 +287,11 @@ def save_dossier(user_id, *, dossier_id=None, name="", eye="NA", date_exam="",
 def list_dossiers(user_id):
     """Return lightweight dossier index (no image_b64)."""
     return _load_index(user_id)
+
+
+def list_dossiers_for_patient(user_id, patient_id):
+    """Return dossiers linked to a specific patient_id."""
+    return [d for d in _load_index(user_id) if d.get("patient_id") == patient_id]
 
 
 def get_dossier(user_id, dossier_id):
@@ -252,13 +311,13 @@ def delete_dossier(user_id, dossier_id):
 
 
 def update_dossier_meta(user_id, dossier_id, **kwargs):
-    """Update metadata fields only (name, tags, notes, eye, date_exam)."""
+    """Update metadata fields only (name, tags, notes, eye, date_exam, patient_id, patient_name)."""
     path = os.path.join(_dossiers_dir(user_id), f"{dossier_id}.json")
     if not os.path.exists(path):
         return
     with open(path) as f:
         data = json_load(f)
-    allowed = {"name", "eye", "date_exam", "pathology_tags", "notes"}
+    allowed = {"name", "eye", "date_exam", "pathology_tags", "notes", "patient_id", "patient_name"}
     for k, v in kwargs.items():
         if k in allowed:
             data[k] = v
