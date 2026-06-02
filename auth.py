@@ -136,10 +136,27 @@ def save_patient_data(user_id, data):
         json_dump(data, f)
 
 
+_GLOBAL_PATIENTS_PATH = os.path.join("userdata", "patients.json")
+
+
+def load_global_patient_data():
+    os.makedirs("userdata", exist_ok=True)
+    if os.path.exists(_GLOBAL_PATIENTS_PATH):
+        with open(_GLOBAL_PATIENTS_PATH) as f:
+            return json_load(f)
+    return {}
+
+
+def save_global_patient_data(data):
+    os.makedirs("userdata", exist_ok=True)
+    with open(_GLOBAL_PATIENTS_PATH, "w") as f:
+        json_dump(data, f)
+
+
 # ── Patient analytics helpers ──────────────────────────────────────────────────
-def get_recent_patients(user_id, n=5):
-    """Return up to n recently modified patients as list of {id, label, last_exam, n_exams}."""
-    patients = load_patient_data(user_id)
+def get_recent_patients(n=5):
+    """Return up to n recently modified patients from the global patient store."""
+    patients = load_global_patient_data()
     summaries = []
     for patient_id, records in patients.items():
         if not records:
@@ -161,8 +178,8 @@ def get_recent_patients(user_id, n=5):
 
 
 def get_user_stats(user_id):
-    """Return aggregate stats dict for the user's data."""
-    patients = load_patient_data(user_id)
+    """Return aggregate stats: global patient counts + per-user dossier counts."""
+    patients = load_global_patient_data()
     n_patients = len(patients)
     n_exams = sum(len(v) for v in patients.values())
     n_annotations = sum(

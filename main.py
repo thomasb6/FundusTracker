@@ -14,6 +14,7 @@ from auth import (
     get_userdata_dir, load_patient_data, save_patient_data,
     save_dossier, list_dossiers, get_dossier, delete_dossier, update_dossier_meta,
     get_user_stats, get_recent_patients, list_dossiers_for_patient,
+    load_global_patient_data, save_global_patient_data,
 )
 from PIL import Image
 from dash import Dash, html, dcc, Input, Output, State, ctx, Patch
@@ -949,17 +950,13 @@ PRESET_TAGS = ["DMLA", "Birdshot", "Toxoplasmose", "Hémangioblastome",
 def layout_my_dossiers():
     """Shell layout — dossiers-content populated by callback."""
     # Build patient options for the filter dropdown
-    _patient_opts = []
     try:
-        from flask_login import current_user as _cu
-        if _cu.is_authenticated:
-            _pts = load_patient_data(_cu.id)
-            _patient_opts = [
-                {"label": pid.replace("_", " "), "value": pid}
-                for pid in sorted(_pts.keys())
-            ]
+        _patient_opts = [
+            {"label": pid.replace("_", " "), "value": pid}
+            for pid in sorted(load_global_patient_data().keys())
+        ]
     except Exception:
-        pass
+        _patient_opts = []
 
     return html.Div([
         dbc.Container([
@@ -2070,7 +2067,6 @@ def serve_layout(language):
                 html.Div(
                     [
                         html.H4(_("Gestion du Patient")),
-                        html.Div(id="patient-account-status", className="mb-3"),
                         dbc.Label(_("Saisir un nouveau patient :")),
                         dcc.Input(
                             id="patient-nom-input",
@@ -2535,7 +2531,7 @@ def serve_layout(language):
     if user:
         try:
             _stats = get_user_stats(user.id)
-            _recent = get_recent_patients(user.id, n=5)
+            _recent = get_recent_patients(n=5)
         except Exception:
             _stats = {"n_patients": 0, "n_dossiers": 0, "n_exams": 0, "tag_counts": {}}
             _recent = []
@@ -2638,16 +2634,13 @@ def serve_layout(language):
         )
 
     # Build patient options for the patient picker in the modal
-    _patient_options = []
-    if user:
-        try:
-            _pts = load_patient_data(user.id)
-            _patient_options = [
-                {"label": pid.replace("_", " "), "value": pid}
-                for pid in sorted(_pts.keys())
-            ]
-        except Exception:
-            pass
+    try:
+        _patient_options = [
+            {"label": pid.replace("_", " "), "value": pid}
+            for pid in sorted(load_global_patient_data().keys())
+        ]
+    except Exception:
+        _patient_options = []
 
     save_dossier_modal = dbc.Modal([
         dbc.ModalHeader(dbc.ModalTitle("Save as dossier")),
@@ -2846,7 +2839,7 @@ def serve_layout(language):
             dcc.Store(id="tab-value-store", data="tab-manuelle"),
             dcc.Store(id="trigger-print-store", data=False),
             dcc.Store(id="uploaded-image-store", data=None),
-            dcc.Store(id="longitudinal-series-store", data={}),
+            dcc.Store(id="longitudinal-series-store", data=load_global_patient_data()),
             dcc.Store(id="longitudinal-table-store", data=[]),
             dcc.Store(id="longitudinal-active-patient-store", data=None),
             dcc.Store(id="matching-results-store"),
@@ -2934,15 +2927,11 @@ def handle_logout(n):
     prevent_initial_call=True,
 )
 def sync_stores_on_auth_change(user_data):
-    if not current_user.is_authenticated:
-        # Logout: wipe patient data from browser
-        return {}, None, None
-    # Login: load from server
-    data = load_patient_data(current_user.id)
-    return data, None, None
+    # Patient data is independent of account — don't touch it on login/logout
+    return dash.no_update, dash.no_update, dash.no_update
 
 
-# ── Auto-save patient data + update last-saved timestamp ──────────────────────
+# ── Auto-save patient data (no auth required) ─────────────────────────────────
 @app.callback(
     Output("patient-autosave-store", "data"),
     Output("last-saved-store", "data"),
@@ -2950,55 +2939,11 @@ def sync_stores_on_auth_change(user_data):
     prevent_initial_call=True,
 )
 def auto_save_patients(series_data):
-    if not current_user.is_authenticated or series_data is None:
+    if series_data is None:
         return dash.no_update, dash.no_update
-    save_patient_data(current_user.id, series_data)
+    save_global_patient_data(series_data)
     ts = datetime.now().strftime("%H:%M:%S")
     return dash.no_update, ts
-
-
-# ── Patient tab account status (one discrete line) ────────────────────────────
-@app.callback(
-    Output("patient-account-status", "children"),
-    Input("current-user-store", "data"),
-    Input("last-saved-store", "data"),
-)
-def update_patient_account_status(user_data, last_saved):
-    if current_user.is_authenticated:
-        saved_label = f" · {last_saved}" if last_saved else ""
-        return html.Div(
-            [
-                html.I(className="fas fa-cloud-upload-alt me-1 text-success"),
-                html.Span(
-                    f"Synced · {current_user.username}{saved_label}",
-                    className="text-success",
-                    style={"fontSize": "0.8rem"},
-                ),
-            ]
-        )
-    return html.Div(
-        [
-            html.I(className="fas fa-lock me-1 text-muted"),
-            html.Span("Not saved — ", className="text-muted", style={"fontSize": "0.8rem"}),
-            dbc.Button(
-                "Login to save",
-                id="patient-login-shortcut-btn",
-                color="link",
-                size="sm",
-                className="p-0",
-                style={"fontSize": "0.8rem", "verticalAlign": "baseline"},
-            ),
-        ]
-    )
-
-
-@app.callback(
-    Output("login-modal", "is_open", allow_duplicate=True),
-    Input("patient-login-shortcut-btn", "n_clicks"),
-    prevent_initial_call=True,
-)
-def open_login_from_patient(n):
-    return True if n else dash.no_update
 
 
 # ── Change password modal open/close ──────────────────────────────────────────
