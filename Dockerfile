@@ -35,4 +35,7 @@ VOLUME ["/app/userdata"]
 
 EXPOSE 8080
 
-CMD ["python", "main.py"]
+# Serveur WSGI de production (le serveur de dev Flask n'est pas fait pour ça).
+# 1 worker : l'app charge exemples et état en mémoire à l'import ; 8 threads
+# couvrent les requêtes concurrentes. Timeout long pour SIFT/exports PDF.
+CMD ["gunicorn", "-b", "0.0.0.0:8080", "--workers", "1", "--threads", "8", "--timeout", "120", "--access-logfile", "-", "main:server"]
