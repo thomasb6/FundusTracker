@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y \
     libsm6 \
     libxext6 \
     libxrender-dev \
+    ca-certificates \
     git \
     && rm -rf /var/lib/apt/lists/*
 
@@ -23,6 +24,18 @@ COPY requirements.txt ./
 # 2. On installe les dépendances. Cette couche sera mise en cache par Docker.
 # Elle ne sera réexécutée QUE si tu modifies ton fichier requirements.txt.
 RUN pip install --no-cache-dir -r requirements.txt
+# --------------------------------
+
+# --- BACKEND DE FONDATION (onglet admin expérimental) ---
+# torch CPU (index dédié pour éviter les wheels CUDA, inutiles ici) + DINOv2.
+# Couche séparée, mise en cache : reconstruite seulement si ce fichier change.
+# Mettre INSTALL_FOUNDATION=0 au build pour une image cœur sans torch.
+ARG INSTALL_FOUNDATION=1
+COPY requirements-foundation.txt ./
+RUN if [ "$INSTALL_FOUNDATION" = "1" ]; then \
+        pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu \
+            torch==2.6.0 torchvision==0.21.0 ; \
+    fi
 # --------------------------------
 
 # 3. On copie le reste de ton code (qui change souvent sur tes petites MAJ)
