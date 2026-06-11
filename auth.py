@@ -2,6 +2,8 @@ import base64
 import io as _io
 import json as _json
 import os
+import re as _re
+import secrets as _secrets
 import sqlite3
 import uuid as _uuid
 from datetime import datetime as _datetime
@@ -55,9 +57,19 @@ def init_db():
             );
         """)
         if not conn.execute("SELECT 1 FROM users LIMIT 1").fetchone():
+            # Pas de mot de passe par défaut codé en dur (repo public) :
+            # FUNDUS_ADMIN_PASSWORD si fourni, sinon généré et affiché une fois.
+            password = os.environ.get("FUNDUS_ADMIN_PASSWORD")
+            if not password:
+                password = _secrets.token_urlsafe(12)
+                print(
+                    f"[FundusTracker] Compte admin initial créé — "
+                    f"identifiant : admin / mot de passe : {password}",
+                    flush=True,
+                )
             conn.execute(
                 "INSERT INTO users (username, password_hash, is_admin) VALUES (?,?,1)",
-                ("admin", generate_password_hash("admin123")),
+                ("admin", generate_password_hash(password)),
             )
         conn.commit()
 
@@ -265,6 +277,17 @@ def _index_path(user_id):
     return os.path.join(get_userdata_dir(user_id), "dossiers_index.json")
 
 
+# Les dossier_id arrivent depuis des ids de composants côté client : on ne
+# construit jamais un chemin avec une valeur non validée (traversée de répertoire).
+_DOSSIER_ID_RE = _re.compile(r"^[0-9a-fA-F-]{1,64}$")
+
+
+def _dossier_path(user_id, dossier_id):
+    if not _DOSSIER_ID_RE.match(str(dossier_id)):
+        return None
+    return os.path.join(_dossiers_dir(user_id), f"{dossier_id}.json")
+
+
 def _load_index(user_id):
     p = _index_path(user_id)
     if os.path.exists(p):
@@ -303,8 +326,10 @@ def save_dossier(user_id, *, dossier_id=None, name="", eye="NA", date_exam="",
     if is_new:
         dossier_id = str(_uuid.uuid4())
 
+    dossier_path = _dossier_path(user_id, dossier_id)
+    if dossier_path is None:
+        return None
     existing = {}
-    dossier_path = os.path.join(_dossiers_dir(user_id), f"{dossier_id}.json")
     if os.path.exists(dossier_path):
         with open(dossier_path) as f:
             existing = json_load(f)
@@ -372,24 +397,24 @@ def list_dossiers_for_patient(user_id, patient_id):
 
 def get_dossier(user_id, dossier_id):
     """Return full dossier dict including image_b64."""
-    path = os.path.join(_dossiers_dir(user_id), f"{dossier_id}.json")
-    if os.path.exists(path):
+    path = _dossier_path(user_id, dossier_id)
+    if path and os.path.exists(path):
         with open(path) as f:
             return json_load(f)
     return None
 
 
 def delete_dossier(user_id, dossier_id):
-    path = os.path.join(_dossiers_dir(user_id), f"{dossier_id}.json")
-    if os.path.exists(path):
+    path = _dossier_path(user_id, dossier_id)
+    if path and os.path.exists(path):
         os.remove(path)
     _save_index(user_id, [m for m in _load_index(user_id) if m["id"] != dossier_id])
 
 
 def update_dossier_meta(user_id, dossier_id, **kwargs):
     """Update metadata fields only (name, tags, notes, eye, date_exam, patient_id, patient_name)."""
-    path = os.path.join(_dossiers_dir(user_id), f"{dossier_id}.json")
-    if not os.path.exists(path):
+    path = _dossier_path(user_id, dossier_id)
+    if not path or not os.path.exists(path):
         return
     with open(path) as f:
         data = json_load(f)
