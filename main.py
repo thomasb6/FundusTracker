@@ -5,8 +5,10 @@ import json
 import os
 import random
 import re
+import time
 import uuid
 import zipfile
+from flask import request as flask_request
 from flask_login import LoginManager, login_user, logout_user, current_user
 from auth import (
     User, init_db, get_user_by_id, verify_user, create_user,
@@ -2982,6 +2984,44 @@ def toggle_login_modal(open_clicks, user_data):
     return dash.no_update
 
 
+# ── Login rate limiting ────────────────────────────────────────────────────────
+# Backoff en mémoire par (ip, identifiant) — suffisant avec un seul worker gunicorn.
+_LOGIN_FAILURES = {}
+_LOGIN_FREE_ATTEMPTS = 5
+_LOGIN_LOCK_BASE_S = 30
+_LOGIN_LOCK_MAX_S = 900
+
+
+def _login_client_ip():
+    # Derrière nginx, remote_addr vaut 127.0.0.1 ; la vraie IP est la dernière
+    # valeur de X-Forwarded-For (celle ajoutée par nginx, non falsifiable).
+    fwd = flask_request.headers.get("X-Forwarded-For", "")
+    if fwd:
+        return fwd.split(",")[-1].strip()
+    return flask_request.remote_addr or "?"
+
+
+def _login_retry_delay(key):
+    entry = _LOGIN_FAILURES.get(key)
+    if not entry:
+        return 0
+    count, last_ts = entry
+    if count < _LOGIN_FREE_ATTEMPTS:
+        return 0
+    lock = min(_LOGIN_LOCK_BASE_S * 2 ** (count - _LOGIN_FREE_ATTEMPTS), _LOGIN_LOCK_MAX_S)
+    return max(0, lock - (time.time() - last_ts))
+
+
+def _login_record_failure(key):
+    if len(_LOGIN_FAILURES) > 1000:
+        cutoff = time.time() - _LOGIN_LOCK_MAX_S
+        for k in [k for k, v in _LOGIN_FAILURES.items() if v[1] < cutoff]:
+            del _LOGIN_FAILURES[k]
+    entry = _LOGIN_FAILURES.setdefault(key, [0, 0.0])
+    entry[0] += 1
+    entry[1] = time.time()
+
+
 # ── Login ──────────────────────────────────────────────────────────────────────
 @app.callback(
     Output("current-user-store", "data"),
@@ -2994,10 +3034,19 @@ def toggle_login_modal(open_clicks, user_data):
 def handle_login(n, username, password):
     if not username or not password:
         return dash.no_update, dbc.Alert("Please fill in all fields.", color="warning", className="py-1")
+    key = (_login_client_ip(), username.strip().lower())
+    delay = _login_retry_delay(key)
+    if delay:
+        return dash.no_update, dbc.Alert(
+            f"Too many failed attempts. Try again in {int(delay) + 1}s.",
+            color="danger", className="py-1",
+        )
     user = verify_user(username, password)
     if user:
+        _LOGIN_FAILURES.pop(key, None)
         login_user(user, remember=True)
         return {"id": user.id, "username": user.username, "is_admin": user.is_admin}, ""
+    _login_record_failure(key)
     # Bad credentials: keep modal open by not closing it (login-error shown)
     return dash.no_update, dbc.Alert("Invalid username or password.", color="danger", className="py-1")
 
