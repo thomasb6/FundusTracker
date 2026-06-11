@@ -17,6 +17,7 @@ from auth import (
     save_dossier, list_dossiers, get_dossier, delete_dossier, update_dossier_meta,
     get_recent_patients, list_dossiers_for_patient,
     count_all_patients, migrate_global_patient_data_to_admin,
+    create_access_request, list_access_requests, delete_access_request,
     DATA_DIR,
 )
 from PIL import Image
@@ -1355,6 +1356,38 @@ def layout_admin():
     from auth import _load_index as _auth_load_index
     users = get_all_users()
     n_global_patients = count_all_patients()
+    access_reqs = list_access_requests()
+    req_rows = []
+    for r in access_reqs:
+        details = []
+        if r.get("institution"):
+            details.append(r["institution"])
+        if r.get("message"):
+            details.append(r["message"])
+        req_rows.append(
+            dbc.ListGroupItem(
+                [
+                    html.Div(
+                        [
+                            html.Strong(r.get("name") or r["email"]),
+                            html.A(f" <{r['email']}>", href=f"mailto:{r['email']}",
+                                   className="ms-1", style={"fontSize": "0.85rem"}),
+                            html.Span(f"  ({(r.get('created_at') or '')[:10]})",
+                                      className="text-muted ms-1", style={"fontSize": "0.8rem"}),
+                            html.Div(" — ".join(details), className="text-muted",
+                                     style={"fontSize": "0.82rem"}) if details else None,
+                        ]
+                    ),
+                    dbc.Button(
+                        html.I(className="fas fa-check"),
+                        id={"type": "admin-delete-request", "index": r["id"]},
+                        color="secondary", size="sm", outline=True, className="ms-auto",
+                        title="Mark handled / remove",
+                    ),
+                ],
+                className="d-flex justify-content-between align-items-center",
+            )
+        )
     rows = []
     for u in users:
         try:
@@ -1393,6 +1426,13 @@ def layout_admin():
                 ),
             ], className="d-flex justify-content-between align-items-center mt-3 mb-3"),
             dbc.ListGroup(rows, className="mb-4"),
+            html.Hr(),
+            html.Div([
+                html.H5("Access requests", className="mb-0"),
+                html.Small(f"{len(access_reqs)} pending", className="text-muted"),
+            ], className="d-flex justify-content-between align-items-center mb-2"),
+            dbc.ListGroup(req_rows, className="mb-4") if req_rows
+            else html.P("No pending access requests.", className="text-muted mb-4"),
             html.Hr(),
             html.H5("Create new user"),
             dbc.Row([
@@ -2076,10 +2116,17 @@ def serve_layout(language):
                     dbc.Col(
                         dbc.Alert(
                             [
-                                html.I(className="fas fa-info-circle me-2"),
-                                "Images are processed ",
-                                html.Strong("locally"),
-                                " — no health data is transmitted to external servers.",
+                                html.I(className="fas fa-shield-alt me-2"),
+                                "Your data is stored privately in your own account, ",
+                                html.Strong("hosted in France"),
+                                " — never shared with third parties. ",
+                                html.A(
+                                    "Privacy",
+                                    href="#",
+                                    id="home-privacy-link",
+                                    className="alert-link",
+                                ),
+                                ".",
                             ],
                             color="light",
                             className="text-center mt-4 border",
@@ -2851,7 +2898,16 @@ def serve_layout(language):
                     html.Div(id="login-error", className="mt-2 text-center"),
                     html.Hr(),
                     html.P(
-                        "Don't have an account? Contact the administrator.",
+                        [
+                            "Don't have an account? ",
+                            dbc.Button(
+                                "Request access",
+                                id="open-access-request-btn",
+                                color="link",
+                                size="sm",
+                                className="p-0 align-baseline",
+                            ),
+                        ],
                         className="text-muted text-center mb-0",
                         style={"fontSize": "0.8rem"},
                     ),
@@ -2861,6 +2917,86 @@ def serve_layout(language):
         id="login-modal",
         is_open=False,
         centered=True,
+    )
+
+    access_request_modal = dbc.Modal(
+        [
+            dbc.ModalHeader(dbc.ModalTitle("Request access")),
+            dbc.ModalBody(
+                [
+                    html.P(
+                        "FundusTracker is currently available on request. Tell us who "
+                        "you are and we'll get back to you.",
+                        className="text-muted",
+                        style={"fontSize": "0.85rem"},
+                    ),
+                    dbc.Input(id="ar-name", placeholder="Full name", className="mb-2"),
+                    dbc.Input(id="ar-email", type="email", placeholder="Email address *",
+                              className="mb-2", autocomplete="email"),
+                    dbc.Input(id="ar-institution", placeholder="Institution / hospital",
+                              className="mb-2"),
+                    dbc.Textarea(id="ar-message", placeholder="How do you plan to use it? (optional)",
+                                 className="mb-3", style={"minHeight": "80px"}),
+                    dbc.Button("Send request", id="access-request-submit",
+                               color="primary", className="w-100"),
+                    html.Div(id="access-request-feedback", className="mt-2 text-center"),
+                ]
+            ),
+        ],
+        id="access-request-modal",
+        is_open=False,
+        centered=True,
+    )
+
+    privacy_modal = dbc.Modal(
+        [
+            dbc.ModalHeader(dbc.ModalTitle("Privacy & data protection")),
+            dbc.ModalBody(
+                [
+                    html.P(
+                        "FundusTracker is designed for clinical research and lets you "
+                        "annotate retinal images and follow patients over time. This "
+                        "notice explains how your data is handled.",
+                        className="text-muted", style={"fontSize": "0.85rem"},
+                    ),
+                    html.H6("Where your data is stored"),
+                    html.P(
+                        "Images you upload and the annotations, dossiers and patient "
+                        "records you create are processed on the server and stored in "
+                        "your private account, on infrastructure hosted in France. They "
+                        "are not shared with third parties and are not used to train any "
+                        "model.",
+                        style={"fontSize": "0.85rem"},
+                    ),
+                    html.H6("Patient data & your responsibility"),
+                    html.P(
+                        "You remain the data controller for any patient information you "
+                        "enter. Only enter identifying data when you are authorised to do "
+                        "so, and follow your institution's rules and the GDPR. Where "
+                        "possible, prefer pseudonymised identifiers.",
+                        style={"fontSize": "0.85rem"},
+                    ),
+                    html.H6("Your rights"),
+                    html.P(
+                        "You can export your dossiers and patient data at any time "
+                        "(JSON / XLSX / PDF) and request deletion of your account and its "
+                        "data by contacting the team.",
+                        style={"fontSize": "0.85rem"},
+                    ),
+                    html.Hr(),
+                    html.P(
+                        ["Questions: ",
+                         html.A("thomas-foulonneau@hotmail.fr",
+                                href="mailto:thomas-foulonneau@hotmail.fr")],
+                        className="text-muted mb-0", style={"fontSize": "0.8rem"},
+                    ),
+                ]
+            ),
+        ],
+        id="privacy-modal",
+        is_open=False,
+        centered=True,
+        scrollable=True,
     )
 
     delete_confirm_modal = dbc.Modal([
@@ -2880,6 +3016,8 @@ def serve_layout(language):
     return html.Div(
         [
             login_modal,
+            access_request_modal,
+            privacy_modal,
             save_dossier_modal,
             delete_confirm_modal,
             change_password_modal,
@@ -3024,6 +3162,54 @@ def toggle_login_modal(open_clicks, user_data):
     if triggered == "current-user-store" and user_data:
         return False  # successful login → close
     return dash.no_update
+
+
+# ── Demande d'accès (modèle sur invitation) ────────────────────────────────────
+@app.callback(
+    Output("access-request-modal", "is_open"),
+    Output("login-modal", "is_open", allow_duplicate=True),
+    Input("open-access-request-btn", "n_clicks"),
+    prevent_initial_call=True,
+)
+def open_access_request(n):
+    if n:
+        return True, False
+    return dash.no_update, dash.no_update
+
+
+@app.callback(
+    Output("access-request-feedback", "children"),
+    Output("ar-name", "value"),
+    Output("ar-email", "value"),
+    Output("ar-institution", "value"),
+    Output("ar-message", "value"),
+    Input("access-request-submit", "n_clicks"),
+    State("ar-name", "value"),
+    State("ar-email", "value"),
+    State("ar-institution", "value"),
+    State("ar-message", "value"),
+    prevent_initial_call=True,
+)
+def submit_access_request(n, name, email, institution, message):
+    if not n:
+        return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
+    ok, err = create_access_request(name, email, institution, message)
+    if not ok:
+        return (dbc.Alert(err, color="warning", className="py-1"),
+                dash.no_update, dash.no_update, dash.no_update, dash.no_update)
+    return (
+        dbc.Alert("Thanks! Your request has been sent.", color="success", className="py-1"),
+        "", "", "", "",
+    )
+
+
+@app.callback(
+    Output("privacy-modal", "is_open"),
+    Input("home-privacy-link", "n_clicks"),
+    prevent_initial_call=True,
+)
+def open_privacy_modal(n):
+    return bool(n)
 
 
 # ── Login rate limiting ────────────────────────────────────────────────────────
@@ -3211,6 +3397,22 @@ def admin_delete_user(n_clicks_list):
         return dash.no_update
     delete_user(triggered["index"])
     return dbc.Alert("User deleted.", color="info", className="py-1")
+
+
+# ── Admin: dismiss an access request ───────────────────────────────────────────
+@app.callback(
+    Output("admin-feedback", "children", allow_duplicate=True),
+    Input({"type": "admin-delete-request", "index": ALL}, "n_clicks"),
+    prevent_initial_call=True,
+)
+def admin_dismiss_request(n_clicks_list):
+    if not current_user.is_authenticated or not current_user.is_admin:
+        return dash.no_update
+    triggered = ctx.triggered_id
+    if not triggered or not any(n_clicks_list):
+        return dash.no_update
+    delete_access_request(triggered["index"])
+    return dbc.Alert("Access request removed.", color="info", className="py-1")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

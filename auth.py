@@ -55,6 +55,14 @@ def init_db():
                 shared_with_id INTEGER NOT NULL,
                 UNIQUE(owner_id, patient_key, shared_with_id)
             );
+            CREATE TABLE IF NOT EXISTS access_requests (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                name        TEXT,
+                email       TEXT    NOT NULL,
+                institution TEXT,
+                message     TEXT,
+                created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
         """)
         if not conn.execute("SELECT 1 FROM users LIMIT 1").fetchone():
             # Pas de mot de passe par défaut codé en dur (repo public) :
@@ -141,6 +149,49 @@ def update_password(user_id, new_password):
             (generate_password_hash(new_password), user_id),
         )
         conn.commit()
+
+
+# ── Demandes d'accès (modèle sur invitation) ───────────────────────────────────
+_EMAIL_RE = _re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def create_access_request(name, email, institution="", message=""):
+    """Enregistre une demande d'accès. Retourne (ok, message_d_erreur)."""
+    email = (email or "").strip()
+    if not _EMAIL_RE.match(email):
+        return False, "A valid email address is required."
+    name = (name or "").strip()[:200]
+    institution = (institution or "").strip()[:200]
+    message = (message or "").strip()[:2000]
+    with _get_db() as conn:
+        conn.execute(
+            "INSERT INTO access_requests (name, email, institution, message) "
+            "VALUES (?,?,?,?)",
+            (name, email, institution, message),
+        )
+        conn.commit()
+    return True, None
+
+
+def list_access_requests():
+    with _get_db() as conn:
+        rows = conn.execute(
+            "SELECT id, name, email, institution, message, created_at "
+            "FROM access_requests ORDER BY created_at DESC"
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def delete_access_request(req_id):
+    with _get_db() as conn:
+        conn.execute("DELETE FROM access_requests WHERE id=?", (req_id,))
+        conn.commit()
+
+
+def count_access_requests():
+    with _get_db() as conn:
+        row = conn.execute("SELECT COUNT(*) AS n FROM access_requests").fetchone()
+    return row["n"] if row else 0
 
 
 def get_all_users():
