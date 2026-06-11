@@ -5100,18 +5100,6 @@ def save_patient_infos(n, nom, prenom, dob, date_gauche, date_droite, language):
     return infos, feedback
 
 
-@app.callback(
-    Output("trigger-print-store", "data"),
-    Input("export-report-btn", "n_clicks"),
-    State("language-store", "data"),
-    prevent_initial_call=True,
-)
-def trigger_pdf_export(n):
-    if n:
-        return True
-    return dash.no_update
-
-
 def render_pdf_report(patient_infos, summary_card, language):
     _ = get_translator(language)
     nom = patient_infos.get("nom", "") if patient_infos else ""
@@ -5179,17 +5167,17 @@ def render_pdf_report(patient_infos, summary_card, language):
 
 clientside_callback(
     """
-    function(trigger) {
-        if(trigger){
+    function(n) {
+        if(n){
             setTimeout(function() {
                 window.print();
             }, 500);
         }
-        return false;
+        return window.dash_clientside.no_update;
     }
     """,
     Output("trigger-print-store", "data"),
-    Input("trigger-print-store", "data"),
+    Input("export-report-btn", "n_clicks"),
     prevent_initial_call=True,
 )
 
