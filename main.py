@@ -20,6 +20,7 @@ from auth import (
     create_access_request, list_access_requests, delete_access_request,
     DATA_DIR,
 )
+import foundation_seg
 from PIL import Image
 from dash import Dash, html, dcc, Input, Output, State, ctx, Patch
 from dash import callback_context
@@ -1451,6 +1452,130 @@ def layout_admin():
     ])
 
 
+def layout_foundation_seg():
+    """Onglet expérimental admin-only : segmentation interactive par modèle de
+    fondation (DINOv2). Cloné du flux semi-auto mais ISOLÉ du RandomForest du
+    manuscrit (IDs préfixés fm-, aucun composant partagé)."""
+    beta = dbc.Alert(
+        [
+            html.I(className="fas fa-flask me-2"),
+            html.Strong("Experimental (beta) — admin only. "),
+            "Same scribble workflow as the semi-automatic tab, but pixel features "
+            "come from a frozen foundation encoder instead of hand-crafted ones. "
+            "The Random Forest tool described in the paper is unchanged.",
+        ],
+        color="warning", className="py-2", style={"fontSize": "0.85rem"},
+    )
+
+    if not foundation_seg.available():
+        return html.Div(dbc.Container([
+            beta,
+            dbc.Card(dbc.CardBody([
+                html.H5("Foundation backend not enabled"),
+                html.P(
+                    "This server does not have the optional machine-learning "
+                    "dependencies installed, so the foundation segmenter is off.",
+                    className="text-muted"),
+                html.P("To enable it, install the foundation requirements and "
+                       "restart:", className="mb-1"),
+                html.Pre("pip install -r requirements-foundation.txt",
+                         className="bg-light p-2 border rounded",
+                         style={"fontSize": "0.8rem"}),
+                html.Small(f"Backend target: {foundation_seg.backend_info()}",
+                           className="text-muted"),
+            ]), className="mt-2"),
+        ], fluid=True))
+
+    instructions = html.Div(
+        [
+            html.H4("Foundation segmentation", className="mb-2"),
+            html.Ol(
+                [
+                    html.Li("Load an image from the list or upload a local file."),
+                    html.Li("Select a label and draw a few strokes per category."),
+                    html.Li("Click Segment. Re-draw and re-run to refine."),
+                ],
+                style={"paddingLeft": "16px", "lineHeight": "2", "fontSize": "0.9rem"},
+            ),
+            html.Hr(className="my-2"),
+            html.Div([
+                html.Span("⬤ Optic Disc", style={"color": "#FFD700", "marginRight": "10px", "fontSize": "0.8rem"}),
+                html.Span("⬤ Lesion", style={"color": "#FF4444", "marginRight": "10px", "fontSize": "0.8rem"}),
+                html.Span("⬤ Background", style={"color": "#00CC44", "fontSize": "0.8rem"}),
+            ]),
+            html.Hr(className="my-2"),
+            html.Small(f"Encoder: {foundation_seg.backend_info()}", className="text-muted"),
+        ],
+        className="left-block",
+    )
+
+    middle = html.Div(
+        [
+            dcc.Loading(
+                dcc.Graph(
+                    id="fm-image-graph",
+                    config={"modeBarButtonsToAdd": ["drawopenpath", "eraseshape"],
+                            "displaylogo": False},
+                    style={"width": "100%", "height": "auto"},
+                    className="graph-figure",
+                ),
+                type="circle", delay_show=200,
+            ),
+            dcc.Loading(html.Div(id="fm-segment-result"), type="default"),
+        ],
+        className="middle-block",
+    )
+
+    right = html.Div(
+        [
+            html.P(html.Strong("Image"), className="mb-1"),
+            dcc.Dropdown(
+                id="fm-file-dropdown",
+                options=[{"label": f.split("/")[-1], "value": f} for f in filenames],
+                placeholder="Choose an image", clearable=True, className="mb-2",
+            ),
+            dcc.Upload(
+                id="fm-upload-image",
+                children=html.Div([html.I(className="fas fa-upload me-2 text-muted"),
+                                   html.Span("Upload local image",
+                                             style={"fontSize": "0.85rem", "color": "#666"})]),
+                style={"width": "100%", "height": "36px", "lineHeight": "36px",
+                       "borderWidth": "1px", "borderStyle": "dashed", "borderRadius": "5px",
+                       "textAlign": "center", "cursor": "pointer", "backgroundColor": "#f8f9fa"},
+                multiple=False,
+            ),
+            html.Div(id="fm-upload-filename", className="text-muted mt-1 mb-1", style={"fontSize": "0.75rem"}),
+            html.Hr(className="my-2"),
+            html.P(html.Strong("Label"), className="mb-1"),
+            dbc.RadioItems(
+                id="fm-label-dropdown",
+                options=[
+                    {"label": html.Span([html.Span("⬤ ", style={"color": "#FFD700"}), "Optic Disc"]), "value": 1},
+                    {"label": html.Span([html.Span("⬤ ", style={"color": "#FF4444"}), "Lesion"]), "value": 2},
+                    {"label": html.Span([html.Span("⬤ ", style={"color": "#00CC44"}), "Background"]), "value": 3},
+                ],
+                value=1, className="mb-2", inputStyle={"marginRight": "6px"},
+            ),
+            html.P(html.Strong("Brush size"), className="mb-0"),
+            dcc.Slider(id="fm-line-width", min=1, max=20, step=1, value=7,
+                       marks={1: "1", 10: "10", 20: "20"},
+                       tooltip={"placement": "bottom", "always_visible": True}),
+            html.Hr(className="my-2"),
+            html.Div(id="fm-squiggle-status", className="mb-2"),
+            dbc.Button([html.I(className="fas fa-magic me-2"), "Segment"],
+                       id="fm-segment-btn", color="primary", className="w-100 mb-2", disabled=True),
+            dbc.Button([html.I(className="fas fa-undo me-2"), "Reset"],
+                       id="fm-reset-btn", color="secondary", outline=True, className="w-100"),
+        ],
+        className="right-block",
+    )
+
+    return html.Div(
+        [beta, html.Div([instructions, middle, right], className="dashboard-container")],
+        style={"padding": "0 12px"},
+    )
+
+
 def serve_layout(language):
 
     _ = get_translator(language)
@@ -2743,7 +2868,11 @@ def serve_layout(language):
     user = current_user if current_user.is_authenticated else None
     admin_tabs = []
     if user and user.is_admin:
-        admin_tabs = [dcc.Tab(label="Admin", value="tab-admin", children=layout_admin())]
+        admin_tabs = [
+            dcc.Tab(label="Admin", value="tab-admin", children=layout_admin()),
+            dcc.Tab(label="FM segmentation (beta)", value="tab-fm",
+                    children=layout_foundation_seg()),
+        ]
 
     dossier_tabs = []
     if user:
@@ -3115,6 +3244,9 @@ def serve_layout(language):
             dcc.Store(id="ml-image-store", data=None),
             dcc.Store(id="ml-squiggle-store", data=[]),
             dcc.Store(id="ml-segmentation-mask", data=None),
+            dcc.Store(id="fm-squiggle-store", data=[]),
+            dcc.Store(id="fm-image-store", data=None),
+            dcc.Store(id="fm-segmentation-mask", data=None),
             dcc.Store(id="tab-value-store", data="tab-manuelle"),
             dcc.Store(id="trigger-print-store", data=False),
             dcc.Store(id="uploaded-image-store", data=None),
@@ -4929,6 +5061,177 @@ def ml_run_segmentation(n_seg, n_reset, file_val, image_store, squiggles, langua
         mask_json,
         False,  # enable Accept button
     )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# FOUNDATION SEGMENTATION (beta, admin-only) — isolé du RandomForest du manuscrit
+# ═══════════════════════════════════════════════════════════════════════════════
+@app.callback(
+    Output("fm-image-store", "data"),
+    Input("fm-upload-image", "contents"),
+    prevent_initial_call=True,
+)
+def fm_store_local_image(contents):
+    return contents
+
+
+@app.callback(
+    Output("fm-segment-btn", "disabled"),
+    Output("fm-squiggle-status", "children"),
+    Output("fm-upload-filename", "children"),
+    Input("fm-squiggle-store", "data"),
+    Input("fm-file-dropdown", "value"),
+    Input("fm-image-store", "data"),
+    Input("fm-upload-image", "filename"),
+)
+def fm_update_controls(squiggles, file_val, image_store, upload_filename):
+    squiggles = squiggles or []
+    has_image = bool(file_val or image_store)
+    counts = {1: 0, 2: 0, 3: 0}
+    for s in squiggles:
+        counts[s.get("label", 0)] = counts.get(s.get("label", 0), 0) + 1
+    unique_labels = sum(1 for v in counts.values() if v > 0)
+    disabled = not (has_image and unique_labels >= 2)
+    if not squiggles:
+        status = html.P(
+            "← Load an image to start." if not has_image
+            else "Draw strokes on the image (≥ 2 labels).",
+            className="text-muted mb-0", style={"fontSize": "0.8rem"})
+    else:
+        info = [(1, "#FFD700", "Disc"), (2, "#FF4444", "Lesion"), (3, "#00CC44", "BG")]
+        badges = [
+            dbc.Badge(f"{counts.get(v, 0)} {name}", color="light",
+                      text_color="dark" if counts.get(v, 0) > 0 else "secondary",
+                      className="me-1",
+                      style={"borderLeft": f"3px solid {col}", "fontSize": "0.75rem"})
+            for v, col, name in info
+        ]
+        status = html.Div(badges, className="d-flex flex-wrap gap-1 mb-1")
+    fname = html.Span(upload_filename, style={"fontStyle": "italic"}) if upload_filename else ""
+    return disabled, status, fname
+
+
+@app.callback(
+    Output("fm-image-graph", "figure"),
+    Output("fm-squiggle-store", "data", allow_duplicate=True),
+    Output("fm-file-dropdown", "value", allow_duplicate=True),
+    Input("fm-file-dropdown", "value"),
+    Input("fm-image-store", "data"),
+    Input("fm-image-graph", "relayoutData"),
+    Input("fm-label-dropdown", "value"),
+    Input("fm-line-width", "value"),
+    Input("fm-reset-btn", "n_clicks"),
+    State("fm-squiggle-store", "data"),
+    prevent_initial_call=True,
+)
+def fm_update_figure(file_dd, file_store, relayout, label, width, reset_n, squiggles):
+    triggered = ctx.triggered_id if hasattr(ctx, "triggered_id") else None
+    file_val = file_store if (triggered == "fm-image-store" and file_store) else file_dd
+    squiggles = squiggles or []
+    if triggered in ["fm-file-dropdown", "fm-image-store", "fm-reset-btn"]:
+        squiggles = []
+    colors = {1: "yellow", 2: "red", 3: "lime"}
+
+    # Fast path: a new stroke was drawn
+    if triggered == "fm-image-graph" and relayout and "shapes" in relayout:
+        for i, sh in enumerate(relayout["shapes"]):
+            if i >= len(squiggles):
+                squiggles.append({"path": sh["path"], "label": label, "width": width})
+        patched = Patch()
+        patched["layout"]["shapes"] = [
+            {"type": "path", "path": sq["path"],
+             "line": {"color": colors.get(sq["label"], "yellow"), "width": sq.get("width", 7)},
+             "layer": "above"} for sq in squiggles
+        ]
+        return patched, squiggles, dash.no_update
+
+    if file_val:
+        try:
+            arr = np.array(load_image_any(file_val))
+            fig = px.imshow(arr)
+        except Exception:
+            fig = px.imshow(np.zeros((700, 700, 3), dtype=np.uint8))
+    else:
+        fig = px.imshow(np.zeros((700, 700, 3), dtype=np.uint8))
+    fig.update_xaxes(visible=False)
+    fig.update_yaxes(visible=False)
+    fig.update_layout(
+        dragmode="drawopenpath", width=700, height=700, margin=dict(l=0, r=0, t=0, b=0),
+        uirevision=file_val or "fm", newshape=dict(line=dict(color="white", width=1, dash="longdash")),
+        shapes=[{"type": "path", "path": sq["path"],
+                 "line": {"color": colors.get(sq["label"], "yellow"), "width": sq.get("width", 7)},
+                 "layer": "above"} for sq in squiggles],
+    )
+    dropdown_out = None if triggered == "fm-image-store" else file_dd
+    return fig, squiggles, dropdown_out
+
+
+@app.callback(
+    Output("fm-segment-result", "children"),
+    Output("fm-image-graph", "figure", allow_duplicate=True),
+    Output("fm-segmentation-mask", "data"),
+    Input("fm-segment-btn", "n_clicks"),
+    Input("fm-reset-btn", "n_clicks"),
+    State("fm-file-dropdown", "value"),
+    State("fm-image-store", "data"),
+    State("fm-squiggle-store", "data"),
+    prevent_initial_call=True,
+)
+def fm_run_segmentation(n_seg, n_reset, file_val, image_store, squiggles):
+    triggered = ctx.triggered_id if hasattr(ctx, "triggered_id") else None
+    if triggered == "fm-reset-btn":
+        return "", dash.no_update, None
+    effective = file_val or image_store
+    if not effective or not squiggles or len(squiggles) < 2:
+        return (dbc.Alert("Draw at least 2 strokes with different labels first.",
+                          color="warning", className="py-2 my-1"),
+                dash.no_update, dash.no_update)
+    if not foundation_seg.available():
+        return (dbc.Alert("Foundation backend not enabled on this server.",
+                          color="danger", className="py-2 my-1"),
+                dash.no_update, dash.no_update)
+
+    arr = np.array(load_image_any(effective))
+    if arr.ndim == 3 and arr.shape[2] == 4:
+        arr = arr[:, :, :3]
+    h, w = arr.shape[:2]
+    label_mask = np.zeros((h, w), dtype=np.uint8)
+    for sq in squiggles:
+        pts = re.findall(r"[-+]?\d*\.\d+|\d+", sq["path"])
+        pts = np.array([[float(pts[i]), float(pts[i + 1])] for i in range(0, len(pts) - 1, 2)])
+        bw = max(1, int(sq.get("width", 7)))
+        for x, y in pts.astype(int):
+            label_mask[max(0, y - bw // 2):y + bw // 2 + 1,
+                       max(0, x - bw // 2):x + bw // 2 + 1] = sq["label"]
+    try:
+        import time as _t
+        t0 = _t.time()
+        pred = foundation_seg.segment(arr, label_mask)
+        elapsed = _t.time() - t0
+    except ValueError:
+        return (dbc.Alert("Not enough labelled regions — draw a bit more.",
+                          color="warning", className="py-2 my-1"),
+                dash.no_update, dash.no_update)
+    except Exception as e:
+        return (dbc.Alert(f"Segmentation failed: {e}", color="danger", className="py-2 my-1"),
+                dash.no_update, dash.no_update)
+
+    fig = px.imshow(arr)
+    fig.add_trace(go.Heatmap(
+        z=pred, showscale=False, opacity=0.45,
+        colorscale=[[0, "rgba(0,0,0,0)"], [0.33, "rgba(255,215,0,0.6)"],
+                    [0.66, "rgba(255,0,0,0.6)"], [1, "rgba(0,200,0,0.5)"]],
+        zmin=0, zmax=3,
+    ))
+    fig.update_xaxes(visible=False)
+    fig.update_yaxes(visible=False)
+    fig.update_layout(width=700, height=700, margin=dict(l=0, r=0, t=0, b=0),
+                      dragmode="drawopenpath",
+                      newshape=dict(line=dict(color="white", width=1, dash="longdash")))
+    return (dbc.Alert([html.I(className="fas fa-check-circle me-2"),
+                       f"Segmented with {foundation_seg.backend_info()} in {elapsed:.1f}s."],
+                      color="success", className="py-2 my-1"),
+            fig, json.dumps(pred.tolist()))
 
 
 @app.callback(

@@ -1,0 +1,6 @@
+# Backend optionnel pour la segmentation par modèle de fondation (onglet admin
+# expérimental). NON inclus dans l'image cœur par défaut : installer séparément
+# (ou via le Dockerfile) pour activer l'onglet « Foundation segmentation (beta) ».
+# DINOv2 ViT-S/14 est récupéré au premier usage via torch.hub.
+torch~=2.6.0
+torchvision~=0.21.0
