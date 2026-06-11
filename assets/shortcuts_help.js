@@ -36,7 +36,7 @@
 
         var title = document.createElement("div");
         title.className = "ft-shortcuts-title";
-        title.innerHTML = "<span>⌨️ Raccourcis clavier · Keyboard shortcuts</span>";
+        title.innerHTML = "<span>Raccourcis clavier · Keyboard shortcuts</span>";
 
         var close = document.createElement("button");
         close.className = "ft-shortcuts-close";
@@ -45,6 +45,11 @@
         close.addEventListener("click", hide);
         title.appendChild(close);
         panel.appendChild(title);
+
+        var subtitle = document.createElement("div");
+        subtitle.className = "ft-shortcuts-subtitle";
+        subtitle.textContent = "Segmentation manuelle · Manual segmentation";
+        panel.appendChild(subtitle);
 
         SHORTCUTS.forEach(function (s) {
             var row = document.createElement("div");

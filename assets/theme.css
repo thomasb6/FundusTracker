@@ -1,32 +1,30 @@
 /* ============================================================================
    FundusTracker — couche de thème (raffinement visuel + accessibilité).
-   Additive : se charge après style.css (ordre alphabétique) et ne modifie
-   aucune logique applicative. Purement présentationnel.
+   Additive : se charge après style.css (ordre alphabétique). Purement
+   présentationnel, aucune logique applicative modifiée.
+   Registre volontairement sobre : pas de dégradés décoratifs, pas de
+   glassmorphism, ombres discrètes, rayons mesurés.
    ============================================================================ */
 
 :root {
-    --ft-bg: #f1f4f8;
+    --ft-bg: #eef1f4;
     --ft-surface: #ffffff;
-    --ft-surface-2: #f7f9fb;
-    --ft-border: #e2e8f0;
-    --ft-text: #1f2d3d;
-    --ft-muted: #64748b;
-    --ft-primary: #2c3e50;   /* navy FLATLY */
-    --ft-accent: #18bc9c;    /* teal FLATLY  */
-    --ft-info: #3498db;
-    --ft-shadow: 0 1px 2px rgba(16, 24, 40, .04), 0 4px 16px rgba(16, 24, 40, .06);
-    --ft-shadow-hover: 0 6px 24px rgba(16, 24, 40, .12);
-    --ft-radius: 12px;
-    --ft-ring: 0 0 0 3px rgba(52, 152, 219, .35);
+    --ft-surface-2: #f5f7f9;
+    --ft-border: #dfe3e8;
+    --ft-border-strong: #cdd3da;
+    --ft-text: #232a31;
+    --ft-muted: #6b757e;
+    --ft-primary: #2c3e50;   /* navy FLATLY, déjà la couleur des boutons */
+    --ft-accent: #18bc9c;     /* teal FLATLY, déjà présent dans l'app */
+    --ft-shadow: 0 1px 2px rgba(20, 28, 36, .05);
+    --ft-shadow-soft: 0 1px 3px rgba(20, 28, 36, .06), 0 1px 1px rgba(20, 28, 36, .04);
+    --ft-radius: 8px;
+    --ft-ring: 0 0 0 2px #fff, 0 0 0 4px rgba(44, 62, 80, .45);
 }
 
 /* --- Base --- */
 body {
     background-color: var(--ft-bg);
-    background-image:
-        radial-gradient(900px 380px at 100% -8%, rgba(24, 188, 156, .06), transparent 60%),
-        radial-gradient(800px 360px at -5% 0%, rgba(52, 152, 219, .06), transparent 55%);
-    background-attachment: fixed;
     color: var(--ft-text);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -35,22 +33,19 @@ body {
 
 /* --- Onglets (dcc.Tabs) --- */
 #tabs {
-    border: none !important;
-    gap: 4px;
-    background: transparent !important;
-    box-shadow: var(--ft-shadow);
+    border: 1px solid var(--ft-border) !important;
+    background-color: var(--ft-surface) !important;
     border-radius: var(--ft-radius);
     overflow: hidden;
-    background-color: var(--ft-surface) !important;
+    box-shadow: var(--ft-shadow);
 }
 #tabs .tab {
     border: none !important;
     background: var(--ft-surface) !important;
     color: var(--ft-muted) !important;
     font-weight: 500;
-    letter-spacing: .1px;
-    padding: 16px 12px !important;
-    transition: background-color .15s ease, color .15s ease, box-shadow .15s ease;
+    padding: 14px 12px !important;
+    transition: color .12s ease, background-color .12s ease;
 }
 #tabs .tab:hover {
     background: var(--ft-surface-2) !important;
@@ -59,7 +54,7 @@ body {
 #tabs .tab--selected {
     color: var(--ft-primary) !important;
     font-weight: 600;
-    box-shadow: inset 0 -3px 0 0 var(--ft-accent) !important;
+    box-shadow: inset 0 -2px 0 0 var(--ft-primary) !important;
     border-top: none !important;
 }
 
@@ -67,27 +62,20 @@ body {
 .card {
     border: 1px solid var(--ft-border) !important;
     border-radius: var(--ft-radius) !important;
-    box-shadow: var(--ft-shadow);
-    transition: box-shadow .2s ease, transform .2s ease;
-}
-.card:hover {
-    box-shadow: var(--ft-shadow-hover);
+    box-shadow: var(--ft-shadow-soft);
 }
 
-/* --- Boutons : rayon, transitions, états --- */
+/* --- Boutons : rayon et états sobres --- */
 .btn {
-    border-radius: 9px;
+    border-radius: 6px;
     font-weight: 500;
-    transition: transform .08s ease, box-shadow .15s ease, filter .15s ease;
 }
-.btn:hover { filter: brightness(1.03); }
-.btn:active { transform: translateY(1px); }
+.btn:active { transform: translateY(.5px); }
 
-/* Accessibilité : anneau de focus visible au clavier (sans gêner la souris). */
+/* Accessibilité : anneau de focus visible au clavier uniquement. */
 .btn:focus-visible,
 a:focus-visible,
 .form-control:focus-visible,
-.Select-control:focus-within,
 .tab:focus-visible {
     outline: none !important;
     box-shadow: var(--ft-ring) !important;
@@ -95,26 +83,25 @@ a:focus-visible,
 
 /* --- Champs de formulaire --- */
 .form-control, .form-select {
-    border-radius: 9px;
-    border-color: var(--ft-border);
-    transition: border-color .15s ease, box-shadow .15s ease;
+    border-radius: 6px;
+    border-color: var(--ft-border-strong);
 }
 .form-control:focus, .form-select:focus {
-    border-color: var(--ft-info);
-    box-shadow: var(--ft-ring);
+    border-color: var(--ft-primary);
+    box-shadow: 0 0 0 2px rgba(44, 62, 80, .14);
 }
 
 /* --- Zone d'upload --- */
 .upload-area {
-    border: 1.5px dashed #94a3b8 !important;
+    border: 1px dashed var(--ft-border-strong) !important;
     border-radius: var(--ft-radius) !important;
     background-color: var(--ft-surface-2) !important;
     color: var(--ft-muted) !important;
-    transition: border-color .15s ease, background-color .15s ease, color .15s ease;
+    transition: border-color .12s ease, background-color .12s ease;
 }
 .upload-area:hover {
-    border-color: var(--ft-accent) !important;
-    background-color: #f0fbf8 !important;
+    border-color: var(--ft-primary) !important;
+    background-color: #eef1f4 !important;
     color: var(--ft-text) !important;
 }
 
@@ -129,50 +116,47 @@ a:focus-visible,
 /* --- Pied de page --- */
 .footer {
     background-color: var(--ft-primary) !important;
-    border-radius: var(--ft-radius);
-    box-shadow: var(--ft-shadow);
 }
 
 /* --- Barre de défilement discrète --- */
-* { scrollbar-width: thin; scrollbar-color: #c2ccd9 transparent; }
-*::-webkit-scrollbar { width: 10px; height: 10px; }
+* { scrollbar-width: thin; scrollbar-color: #c6cdd5 transparent; }
+*::-webkit-scrollbar { width: 9px; height: 9px; }
 *::-webkit-scrollbar-thumb {
-    background: #c2ccd9;
+    background: #c6cdd5;
     border-radius: 999px;
     border: 2px solid transparent;
     background-clip: content-box;
 }
-*::-webkit-scrollbar-thumb:hover { background: #a7b4c4; background-clip: content-box; }
+*::-webkit-scrollbar-thumb:hover { background: #aeb6c0; background-clip: content-box; }
 
 /* ============================================================================
-   Panneau d'aide des raccourcis clavier (shortcuts_help.js)
+   Aide des raccourcis clavier (shortcuts_help.js)
    ============================================================================ */
 .ft-shortcuts-btn {
     position: fixed;
-    right: 18px;
-    bottom: 18px;
-    width: 42px;
-    height: 42px;
-    border-radius: 50%;
-    border: none;
-    background: var(--ft-primary);
-    color: #fff;
-    font-size: 20px;
-    font-weight: 700;
+    right: 16px;
+    bottom: 16px;
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    border: 1px solid var(--ft-border-strong);
+    background: var(--ft-surface);
+    color: var(--ft-muted);
+    font-size: 14px;
+    font-weight: 600;
     line-height: 1;
     cursor: pointer;
-    box-shadow: var(--ft-shadow-hover);
+    box-shadow: var(--ft-shadow-soft);
     z-index: 1080;
-    transition: transform .12s ease, background-color .15s ease;
+    transition: color .12s ease, border-color .12s ease;
 }
-.ft-shortcuts-btn:hover { background: var(--ft-accent); transform: translateY(-2px); }
+.ft-shortcuts-btn:hover { color: var(--ft-text); border-color: var(--ft-muted); }
 .ft-shortcuts-btn:focus-visible { outline: none; box-shadow: var(--ft-ring); }
 
 .ft-shortcuts-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(15, 23, 42, .45);
-    backdrop-filter: blur(2px);
+    background: rgba(20, 28, 36, .4);
     display: none;
     align-items: center;
     justify-content: center;
@@ -182,70 +166,72 @@ a:focus-visible,
 
 .ft-shortcuts-panel {
     background: var(--ft-surface);
+    border: 1px solid var(--ft-border);
     border-radius: var(--ft-radius);
-    box-shadow: 0 20px 60px rgba(15, 23, 42, .35);
-    width: min(460px, 92vw);
+    box-shadow: 0 8px 28px rgba(20, 28, 36, .18);
+    width: min(440px, 92vw);
     max-height: 86vh;
     overflow: auto;
-    padding: 18px 20px 16px;
+    padding: 16px 18px 14px;
 }
 .ft-shortcuts-title {
     display: flex;
-    align-items: center;
+    align-items: baseline;
     justify-content: space-between;
     font-weight: 600;
     color: var(--ft-text);
-    font-size: 1.02rem;
-    padding-bottom: 12px;
-    margin-bottom: 8px;
+    font-size: .98rem;
+}
+.ft-shortcuts-subtitle {
+    color: var(--ft-muted);
+    font-size: .8rem;
+    margin: 2px 0 10px;
+    padding-bottom: 10px;
     border-bottom: 1px solid var(--ft-border);
 }
 .ft-shortcuts-close {
     border: none;
     background: transparent;
     color: var(--ft-muted);
-    font-size: 1.1rem;
+    font-size: 1rem;
     cursor: pointer;
     line-height: 1;
-    padding: 4px 6px;
-    border-radius: 6px;
+    padding: 2px 4px;
 }
-.ft-shortcuts-close:hover { background: var(--ft-surface-2); color: var(--ft-text); }
+.ft-shortcuts-close:hover { color: var(--ft-text); }
 
 .ft-shortcuts-row {
     display: flex;
     align-items: center;
     gap: 14px;
-    padding: 7px 2px;
+    padding: 6px 0;
 }
 .ft-shortcuts-keys {
-    flex: 0 0 110px;
+    flex: 0 0 96px;
     display: flex;
     align-items: center;
     gap: 4px;
-    justify-content: flex-start;
 }
-.ft-shortcuts-sep { color: var(--ft-muted); font-size: .8rem; }
-.ft-shortcuts-label { color: var(--ft-text); font-size: .92rem; }
-.ft-shortcuts-en { color: var(--ft-muted); font-size: .82rem; }
+.ft-shortcuts-sep { color: var(--ft-muted); font-size: .78rem; }
+.ft-shortcuts-label { color: var(--ft-text); font-size: .9rem; }
+.ft-shortcuts-en { color: var(--ft-muted); font-size: .8rem; }
 .ft-shortcuts-hint {
-    margin-top: 12px;
-    padding-top: 10px;
+    margin-top: 10px;
+    padding-top: 9px;
     border-top: 1px solid var(--ft-border);
     color: var(--ft-muted);
-    font-size: .78rem;
-    text-align: center;
+    font-size: .76rem;
 }
 .ft-shortcuts-panel kbd {
     background: var(--ft-surface-2);
-    border: 1px solid var(--ft-border);
+    border: 1px solid var(--ft-border-strong);
     border-bottom-width: 2px;
-    border-radius: 6px;
-    padding: 2px 7px;
+    border-radius: 4px;
+    padding: 1px 6px;
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: .8rem;
+    font-size: .78rem;
     color: var(--ft-text);
-    min-width: 22px;
+    min-width: 20px;
     text-align: center;
 }
 
