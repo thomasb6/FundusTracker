@@ -931,7 +931,9 @@ def save_current_patient_data(data):
     return False
 # ─────────────────────────────────────────────────────────────────────────────
 
-filenames = get_filenames()
+# FUNDUS_SKIP_REMOTE court-circuite l'appel réseau GitHub (tests/CI, import
+# hors-ligne). Sans cette variable, comportement de production inchangé.
+filenames = [] if os.environ.get("FUNDUS_SKIP_REMOTE") else get_filenames()
 
 
 app.layout = html.Div([

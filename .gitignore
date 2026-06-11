@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.venv-test/
+venv/
+*.egg-info/
+
+# Tests
+.pytest_cache/
+
+# Données persistantes (jamais committer de données patient)
+userdata/
+*.db
+
+# OS
+.DS_Store
