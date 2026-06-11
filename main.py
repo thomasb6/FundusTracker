@@ -884,6 +884,46 @@ app = Dash(
 )
 server = app.server
 
+# ── Déploiement derrière nginx (terminaison TLS) ──────────────────────────────
+# ProxyFix : l'app voit le bon schéma (https) et la vraie IP client via les
+# en-têtes X-Forwarded-* ajoutés par nginx. Sans proxy, c'est un no-op.
+from werkzeug.middleware.proxy_fix import ProxyFix
+server.wsgi_app = ProxyFix(server.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
+# Cookies de session durcis. SECURE par défaut (déploiement HTTPS) ; mettre
+# FUNDUS_SECURE_COOKIES=0 pour un dev local en HTTP.
+_secure_cookies = os.environ.get("FUNDUS_SECURE_COOKIES", "1") != "0"
+server.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=_secure_cookies,
+    REMEMBER_COOKIE_HTTPONLY=True,
+    REMEMBER_COOKIE_SAMESITE="Lax",
+    REMEMBER_COOKIE_SECURE=_secure_cookies,
+)
+
+
+@server.after_request
+def _security_headers(response):
+    # En-têtes de sécurité standards pour une application web médicale.
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault(
+        "Permissions-Policy", "geolocation=(), microphone=(), camera=()"
+    )
+    response.headers.setdefault(
+        "Strict-Transport-Security", "max-age=31536000; includeSubDomains"
+    )
+    # CSP minimale anti-clickjacking : ne restreint pas le chargement des
+    # ressources (Dash + CDN), donc ne casse pas l'app.
+    response.headers.setdefault(
+        "Content-Security-Policy",
+        "frame-ancestors 'none'; base-uri 'self'; object-src 'none'",
+    )
+    return response
+
+
 # ── Auth setup ────────────────────────────────────────────────────────────────
 _secret_key_file = os.path.join(DATA_DIR, "secret_key.txt")
 _existing_key = ""
@@ -3126,8 +3166,10 @@ def handle_change_password(n, current_pw, new_pw, confirm_pw):
         return dbc.Alert("All fields are required.", color="warning", className="py-1"), dash.no_update
     if new_pw != confirm_pw:
         return dbc.Alert("New passwords do not match.", color="danger", className="py-1"), dash.no_update
-    if len(new_pw) < 6:
-        return dbc.Alert("Password must be at least 6 characters.", color="warning", className="py-1"), dash.no_update
+    from auth import password_problem as _pw_problem
+    _problem = _pw_problem(new_pw)
+    if _problem:
+        return dbc.Alert(_problem, color="warning", className="py-1"), dash.no_update
     from auth import verify_user as _verify
     if not _verify(current_user.username, current_pw):
         return dbc.Alert("Current password is incorrect.", color="danger", className="py-1"), dash.no_update

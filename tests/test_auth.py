@@ -20,20 +20,41 @@ class TestAccounts:
         assert auth.verify_user("admin", "admin123") is None  # plus de défaut public
 
     def test_create_and_verify_user(self):
-        ok, err = auth.create_user("grader_cm", "s3cret")
+        ok, err = auth.create_user("grader_cm", "s3cretpw")
         assert ok and err is None
-        user = auth.verify_user("grader_cm", "s3cret")
+        user = auth.verify_user("grader_cm", "s3cretpw")
         assert user is not None and user.username == "grader_cm"
         assert user.is_admin is False
 
     def test_duplicate_username_rejected(self):
-        auth.create_user("dup", "pw")
-        ok, err = auth.create_user("dup", "pw2")
+        auth.create_user("dup", "password1")
+        ok, err = auth.create_user("dup", "password2")
         assert ok is False and "exists" in err.lower()
 
     def test_wrong_password_fails(self):
-        auth.create_user("bob", "rightpw")
-        assert auth.verify_user("bob", "wrongpw") is None
+        auth.create_user("bob", "rightpw1")
+        assert auth.verify_user("bob", "wrongpw1") is None
+
+
+# ── Politique de mot de passe ──────────────────────────────────────────────────
+class TestPasswordPolicy:
+    def test_accepts_strong_password(self):
+        assert auth.password_problem("Abcdef12") is None
+
+    def test_rejects_too_short(self):
+        assert "8" in auth.password_problem("a1b2")
+
+    def test_rejects_no_digit(self):
+        assert auth.password_problem("onlyletters") is not None
+
+    def test_rejects_no_letter(self):
+        assert auth.password_problem("12345678") is not None
+
+    def test_create_user_enforces_policy(self):
+        ok, err = auth.create_user("weakling", "short")
+        assert ok is False and err is not None
+        # Aucun compte ne doit avoir été créé.
+        assert auth.verify_user("weakling", "short") is None
 
 
 # ── Dossiers : CRUD ────────────────────────────────────────────────────────────

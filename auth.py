@@ -95,7 +95,27 @@ def verify_user(username, password):
     return None
 
 
+# Politique de mot de passe (comptes multi-utilisateurs). Volontairement
+# simple et explicite : longueur minimale + au moins une lettre et un chiffre.
+PASSWORD_MIN_LENGTH = 8
+
+
+def password_problem(password):
+    """Retourne un message d'erreur si le mot de passe est trop faible, sinon None."""
+    if not password or len(password) < PASSWORD_MIN_LENGTH:
+        return f"Password must be at least {PASSWORD_MIN_LENGTH} characters."
+    if not _re.search(r"[A-Za-z]", password) or not _re.search(r"\d", password):
+        return "Password must contain at least one letter and one digit."
+    return None
+
+
 def create_user(username, password, is_admin=False):
+    username = (username or "").strip()
+    if not username:
+        return False, "Username is required."
+    problem = password_problem(password)
+    if problem:
+        return False, problem
     try:
         with _get_db() as conn:
             conn.execute(

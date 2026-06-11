@@ -8,6 +8,8 @@ import os
 import tempfile
 
 os.environ.setdefault("FUNDUS_SKIP_REMOTE", "1")
+# Tests hors HTTPS : ne pas exiger le flag Secure sur les cookies.
+os.environ.setdefault("FUNDUS_SECURE_COOKIES", "0")
 # Autoritaire : le compte admin initial est créé avec ce mot de passe, quelle
 # que soit la valeur passée par l'environnement CI. Les tests s'y réfèrent.
 ADMIN_PASSWORD = "test-admin-pw"
