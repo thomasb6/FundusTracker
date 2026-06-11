@@ -9,9 +9,9 @@ jobs:
   pytest:
     runs-on: ubuntu-latest
     env:
-      # Pas d'appel réseau GitHub à l'import, base/données dans un dossier jetable.
+      # Pas d'appel réseau GitHub à l'import (le mot de passe admin de test et
+      # le dossier de données jetable sont fixés par tests/conftest.py).
       FUNDUS_SKIP_REMOTE: "1"
-      FUNDUS_ADMIN_PASSWORD: "ci-admin-pw"
     steps:
       - uses: actions/checkout@v4
 

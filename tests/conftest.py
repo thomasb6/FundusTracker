@@ -8,6 +8,9 @@ import os
 import tempfile
 
 os.environ.setdefault("FUNDUS_SKIP_REMOTE", "1")
-os.environ.setdefault("FUNDUS_ADMIN_PASSWORD", "test-admin-pw")
-if not os.environ.get("FUNDUS_DATA_DIR"):
-    os.environ["FUNDUS_DATA_DIR"] = tempfile.mkdtemp(prefix="fundus_tests_")
+# Autoritaire : le compte admin initial est créé avec ce mot de passe, quelle
+# que soit la valeur passée par l'environnement CI. Les tests s'y réfèrent.
+ADMIN_PASSWORD = "test-admin-pw"
+os.environ["FUNDUS_ADMIN_PASSWORD"] = ADMIN_PASSWORD
+# Stockage isolé et jetable, toujours neuf (donc base vide → admin recréé).
+os.environ["FUNDUS_DATA_DIR"] = tempfile.mkdtemp(prefix="fundus_tests_")
