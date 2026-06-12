@@ -5014,7 +5014,7 @@ def ml_method_note(method):
     if method == "fm":
         if not foundation_seg.available():
             return "Foundation backend unavailable here — Random Forest will be used."
-        return f"Pretrained foundation features ({foundation_seg.backend_info()})."
+        return f"Pretrained foundation features — {foundation_seg.backend_info()}."
     return "Original hand-crafted features (method described in the paper)."
 
 
