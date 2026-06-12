@@ -2295,6 +2295,37 @@ def serve_layout(language):
                         ),
                         html.Div(id="ml-method-note",
                                  className="text-muted mb-2", style={"fontSize": "0.75rem"}),
+                        # — Réglages du modèle de fondation (visibles si method=fm) —
+                        html.Div(
+                            [
+                                html.P([html.Strong("Sensitivity"),
+                                        html.Span(" (lesion extent)", className="text-muted",
+                                                  style={"fontSize": "0.72rem"})],
+                                       className="mb-0 mt-1"),
+                                dcc.Slider(id="ml-fm-sensitivity", min=0.1, max=1.0, step=0.05,
+                                           value=0.5, marks={0.1: "−", 0.5: "•", 1.0: "+"},
+                                           tooltip={"placement": "bottom", "always_visible": False}),
+                                html.P([html.Strong("Detail"),
+                                        html.Span(" (boundary fineness)", className="text-muted",
+                                                  style={"fontSize": "0.72rem"})],
+                                       className="mb-0"),
+                                dcc.Slider(id="ml-fm-detail", min=0.0, max=1.0, step=0.05,
+                                           value=0.5, marks={0.0: "−", 0.5: "•", 1.0: "+"},
+                                           tooltip={"placement": "bottom", "always_visible": False}),
+                                html.P([html.Strong("Min lesion size"),
+                                        html.Span(" (% of image)", className="text-muted",
+                                                  style={"fontSize": "0.72rem"})],
+                                       className="mb-0"),
+                                dcc.Slider(id="ml-fm-minsize", min=0.0, max=0.5, step=0.01,
+                                           value=0.03,
+                                           marks={0.0: "0", 0.25: "0.25", 0.5: "0.5"},
+                                           tooltip={"placement": "bottom", "always_visible": False}),
+                                dbc.Switch(id="ml-fm-round-disc",
+                                           label="Optic disc is round (ellipse prior)",
+                                           value=True, className="mt-2"),
+                            ],
+                            id="ml-fm-settings", className="mb-1",
+                        ),
                         html.Hr(className="my-2"),
                         # — Actions ———————————————————————————————
                         dbc.Button(
@@ -4854,9 +4885,14 @@ def update_ml_figure(
     State("ml-squiggle-store", "data"),
     State("language-store", "data"),
     State("ml-method", "value"),
+    State("ml-fm-sensitivity", "value"),
+    State("ml-fm-detail", "value"),
+    State("ml-fm-minsize", "value"),
+    State("ml-fm-round-disc", "value"),
     prevent_initial_call=True,
 )
-def ml_run_segmentation(n_seg, n_reset, file_val, image_store, squiggles, language, method):
+def ml_run_segmentation(n_seg, n_reset, file_val, image_store, squiggles, language, method,
+                        fm_sensitivity, fm_detail, fm_minsize, fm_round_disc):
     _ = get_translator(language)
     triggered = ctx.triggered_id if hasattr(ctx, "triggered_id") else None
     if triggered == "ml-reset-btn":
@@ -4900,7 +4936,13 @@ def ml_run_segmentation(n_seg, n_reset, file_val, image_store, squiggles, langua
     # « else » ci-dessous, strictement inchangé.
     if method == "fm" and foundation_seg.available():
         try:
-            mask_pred = foundation_seg.segment(arr, mask)
+            mask_pred = foundation_seg.segment(
+                arr, mask,
+                sensitivity=fm_sensitivity if fm_sensitivity is not None else 0.5,
+                detail=fm_detail if fm_detail is not None else 0.5,
+                min_lesion_frac=(fm_minsize or 0.0) / 100.0,
+                round_disc=bool(fm_round_disc),
+            )
         except ValueError:
             return (
                 dbc.Alert([html.I(className="fas fa-exclamation-triangle me-2"),
@@ -5005,17 +5047,22 @@ def ml_run_segmentation(n_seg, n_reset, file_val, image_store, squiggles, langua
     )
 
 
-# ── Note d'aide sous le sélecteur de méthode ──────────────────────────────────
+# ── Note + réglages selon la méthode choisie ──────────────────────────────────
 @app.callback(
     Output("ml-method-note", "children"),
+    Output("ml-fm-settings", "style"),
     Input("ml-method", "value"),
 )
 def ml_method_note(method):
+    fm_visible = {} if method == "fm" else {"display": "none"}
     if method == "fm":
         if not foundation_seg.available():
-            return "Foundation backend unavailable here — Random Forest will be used."
-        return f"Pretrained foundation features — {foundation_seg.backend_info()}."
-    return "Original hand-crafted features (method described in the paper)."
+            note = "Foundation backend unavailable here — Random Forest will be used."
+        else:
+            note = f"Pretrained foundation features — {foundation_seg.backend_info()}."
+    else:
+        note = "Original hand-crafted features (method described in the paper)."
+    return note, fm_visible
 
 
 @app.callback(

@@ -112,93 +112,169 @@ def extract_grid_features(arr_rgb):
     return feats
 
 
-def _labels_to_grid(label_mask, gh, gw):
-    """Vote majoritaire des pixels marqués vers la grille de patchs."""
-    h0, w0 = label_mask.shape
-    ys, xs = np.nonzero(label_mask)
-    grid = np.zeros((gh, gw), dtype=np.int32)
-    if len(ys) == 0:
-        return grid
-    gy = np.clip((ys.astype(np.float64) / h0 * gh).astype(int), 0, gh - 1)
-    gx = np.clip((xs.astype(np.float64) / w0 * gw).astype(int), 0, gw - 1)
-    labels = label_mask[ys, xs].astype(int)
-    k = int(labels.max())
-    votes = np.zeros((gh, gw, k + 1), dtype=np.int32)
-    np.add.at(votes, (gy, gx, labels), 1)
-    has = votes[:, :, 1:].sum(axis=2) > 0
-    grid[has] = votes[:, :, 1:].argmax(axis=2)[has] + 1
-    return grid
+# ── Descripteurs rétiniens (résolution de travail) ─────────────────────────────
+def _appearance_features(img_s):
+    """Descripteurs locaux adaptés au fond d'œil : canal vert (où les lésions
+    ressortent), R, B, moyenne/écart-type locaux, contraste local, et
+    vascularisation (filtre de Frangi). Renvoie (H, W, A) float32 ~[0,1]."""
+    import cv2
+    from skimage.filters import frangi
+
+    g = img_s[:, :, 1].astype(np.float32) / 255.0
+    r = img_s[:, :, 0].astype(np.float32) / 255.0
+    b = img_s[:, :, 2].astype(np.float32) / 255.0
+    mean = cv2.blur(g, (15, 15))
+    sq = cv2.blur(g * g, (15, 15))
+    std = np.sqrt(np.maximum(sq - mean * mean, 0.0))
+    contrast = g - mean
+    try:
+        vessel = frangi(g, black_ridges=True).astype(np.float32)
+        vessel = vessel / (float(vessel.max()) + 1e-6)
+    except Exception:
+        vessel = np.zeros_like(g)
+    return np.stack([g, r, b, mean, std, contrast, vessel], axis=-1).astype(np.float32)
 
 
-def _refine_contours(prob_grid, classes, image_rgb, out_hw):
-    """Affine les contours : probabilités ré-échantillonnées en bilinéaire puis
-    moyennées par superpixel SLIC (les frontières suivent les bords de l'image).
-    Supprime l'aspect « en blocs » dû à la résolution des patchs."""
+def _superpixel_dino(seg, nseg, gci, grid_feats):
+    """Feature DINOv2 moyenne par superpixel via une matrice creuse
+    superpixel→cellule-de-grille (évite d'upsampler densément les embeddings)."""
+    gh, gw, c = grid_feats.shape
+    ncell = gh * gw
+    w = np.zeros((nseg, ncell), dtype=np.float32)
+    np.add.at(w, (seg.reshape(-1), gci.reshape(-1)), 1.0)
+    w /= np.maximum(w.sum(axis=1, keepdims=True), 1.0)
+    return (w @ grid_feats.reshape(ncell, c)).astype(np.float32)
+
+
+def _postprocess(pix_label, classes, min_size, round_disc, disc_label, lesion_label):
+    """Nettoyage adapté aux lésions (trous bouchés, petites taches retirées,
+    contour lissé) + a priori clinique « nerf optique rond » (ellipse)."""
+    import cv2
+    from scipy import ndimage as ndi
+    from skimage.morphology import remove_small_objects, binary_closing, disk
+
+    present = set(int(x) for x in classes)
+    bg_label = 3 if 3 in present else next(
+        (l for l in present if l not in (disc_label, lesion_label)), 3)
+    out = pix_label.copy()
+
+    if lesion_label in present:
+        les = pix_label == lesion_label
+        les = ndi.binary_fill_holes(les)
+        if min_size > 0:
+            les = remove_small_objects(les, int(min_size))
+        les = binary_closing(les, disk(2))
+        out[pix_label == lesion_label] = bg_label
+        out[les] = lesion_label
+
+    if disc_label in present:
+        discm = pix_label == disc_label
+        out[discm] = bg_label
+        lbl, n = ndi.label(discm)
+        if n >= 1:
+            sizes = ndi.sum(np.ones_like(lbl), lbl, index=np.arange(1, n + 1))
+            biggest = lbl == (1 + int(np.argmax(sizes)))
+            reg = biggest
+            if round_disc:
+                ys, xs = np.nonzero(biggest)
+                if len(xs) >= 5:
+                    cnt = np.stack([xs, ys], axis=1).astype(np.int32).reshape(-1, 1, 2)
+                    try:
+                        canvas = np.zeros(pix_label.shape, np.uint8)
+                        cv2.ellipse(canvas, cv2.fitEllipse(cnt), 1, -1)
+                        reg = canvas.astype(bool)
+                    except Exception:
+                        reg = biggest
+            out[reg] = disc_label
+    return out
+
+
+def _segment_from_features(grid_feats, arr_rgb, label_mask, *, sensitivity=0.5,
+                           detail=0.5, min_lesion_frac=0.0003, round_disc=True,
+                           disc_label=1, lesion_label=2, work_max=768):
+    """Cœur de segmentation SANS torch (donc testable et utilisable une fois les
+    embeddings DINOv2 calculés) : classification au niveau superpixel sur
+    features DINOv2 + descripteurs rétiniens, avec réglages et a priori."""
     import cv2
     from skimage.segmentation import slic
+    from sklearn.ensemble import RandomForestClassifier
 
-    h0, w0 = out_hw
-    prob_full = cv2.resize(prob_grid, (w0, h0), interpolation=cv2.INTER_LINEAR)
-    if prob_full.ndim == 2:
-        prob_full = prob_full[..., None]
+    h0, w0 = label_mask.shape
+    scale = min(1.0, work_max / float(max(h0, w0)))
+    hw = max(1, int(round(h0 * scale)))
+    ww = max(1, int(round(w0 * scale)))
+    img_s = cv2.resize(arr_rgb, (ww, hw), interpolation=cv2.INTER_AREA)
 
-    n_seg = int(np.clip((h0 * w0) // 1500, 400, 2500))
-    seg = slic(image_rgb, n_segments=n_seg, compactness=15,
+    cell = float(np.interp(detail, [0.0, 1.0], [34.0, 12.0]))  # px / superpixel
+    n_seg = int(np.clip((hw * ww) / (cell * cell), 300, 6000))
+    seg = slic(img_s, n_segments=n_seg, compactness=12,
                start_label=0, channel_axis=-1)
     nseg = int(seg.max()) + 1
-    k = prob_full.shape[2]
-    flat_seg = seg.reshape(-1)
-    sums = np.zeros((nseg, k), dtype=np.float64)
-    np.add.at(sums, flat_seg, prob_full.reshape(-1, k))
-    counts = np.bincount(flat_seg, minlength=nseg).reshape(-1, 1)
-    means = sums / np.maximum(counts, 1)
-    sp_label = classes[means.argmax(axis=1)]
-    return sp_label[flat_seg].reshape(h0, w0).astype(np.uint8)
+
+    gh, gw, _c = grid_feats.shape
+    yy, xx = np.mgrid[0:hw, 0:ww]
+    gci = (np.clip((yy / hw * gh).astype(int), 0, gh - 1) * gw
+           + np.clip((xx / ww * gw).astype(int), 0, gw - 1))
+    sp_dino = _superpixel_dino(seg, nseg, gci, grid_feats)
+
+    app = _appearance_features(img_s)
+    a = app.shape[2]
+    sums = np.zeros((nseg, a), dtype=np.float64)
+    np.add.at(sums, seg.reshape(-1), app.reshape(-1, a))
+    counts = np.bincount(seg.reshape(-1), minlength=nseg).reshape(-1, 1)
+    sp_app = (sums / np.maximum(counts, 1)).astype(np.float32)
+    sp_feat = np.concatenate([sp_dino, sp_app], axis=1)
+
+    # Traits → superpixels (poids = nombre de pixels marqués).
+    lab_s = cv2.resize(label_mask, (ww, hw), interpolation=cv2.INTER_NEAREST)
+    ys, xs = np.nonzero(lab_s)
+    if len(ys) == 0:
+        raise ValueError("not_enough_labels")
+    sp_of = seg[ys, xs]
+    lbls = lab_s[ys, xs].astype(int)
+    votes = np.zeros((nseg, int(lbls.max()) + 1), dtype=np.int64)
+    np.add.at(votes, (sp_of, lbls), 1)
+    labeled = np.nonzero(votes[:, 1:].sum(axis=1) > 0)[0]
+    sp_label = votes[labeled, 1:].argmax(axis=1) + 1
+    sp_weight = votes[labeled, 1:].sum(axis=1)
+    if len(np.unique(sp_label)) < 2:
+        raise ValueError("not_enough_labels")
+
+    clf = RandomForestClassifier(n_estimators=120, class_weight="balanced",
+                                 random_state=0, n_jobs=1)
+    clf.fit(sp_feat[labeled], sp_label, sample_weight=sp_weight)
+    classes = clf.classes_.astype(np.uint8)
+    proba = clf.predict_proba(sp_feat)
+
+    # Sensibilité : biais monotone sur la classe « lésion » (0.5 = neutre).
+    if lesion_label in classes:
+        j = int(np.where(classes == lesion_label)[0][0])
+        proba = proba.copy()
+        proba[:, j] *= float(np.clip(sensitivity / 0.5, 0.0, 4.0))
+        proba /= np.maximum(proba.sum(axis=1, keepdims=True), 1e-9)
+
+    sp_pred = classes[proba.argmax(axis=1)]
+    pix = sp_pred[seg]
+
+    min_size = int(min_lesion_frac * hw * ww)
+    pix = _postprocess(pix, classes, min_size, round_disc, disc_label, lesion_label)
+    return cv2.resize(pix.astype(np.uint8), (w0, h0), interpolation=cv2.INTER_NEAREST)
 
 
-def segment(arr_rgb, label_mask, refine=True):
-    """Segmente l'image à partir des traits.
+def segment(arr_rgb, label_mask, *, sensitivity=0.5, detail=0.5,
+            min_lesion_frac=0.0003, round_disc=True, disc_label=1,
+            lesion_label=2, refine=True):
+    """Segmente l'image à partir des traits (modèle de fondation).
 
     arr_rgb : HxWx3 uint8 ; label_mask : HxW (0 = non marqué, 1..K = classes).
-    Renvoie un masque HxW uint8 de labels prédits (mêmes valeurs que les traits).
-    """
-    from sklearn.linear_model import LogisticRegression
-
+    Paramètres réglables : sensibilité (lésion), finesse (superpixels), taille
+    minimale de lésion, a priori « nerf optique rond »."""
     if arr_rgb.ndim == 2:
         arr_rgb = np.stack([arr_rgb] * 3, axis=-1)
     if arr_rgb.shape[2] == 4:
         arr_rgb = arr_rgb[:, :, :3]
-
-    feats = extract_grid_features(arr_rgb)
-    gh, gw, c = feats.shape
-    flat = feats.reshape(-1, c)
-
-    grid_labels = _labels_to_grid(label_mask, gh, gw)
-    idx = grid_labels.reshape(-1) > 0
-    if idx.sum() < 2 or len(np.unique(grid_labels[grid_labels > 0])) < 2:
-        # Pas assez de classes après projection sur la grille.
-        raise ValueError("not_enough_labels")
-
-    # Normalisation simple (les embeddings ne sont pas centrés).
-    mu = flat.mean(axis=0, keepdims=True)
-    sd = flat.std(axis=0, keepdims=True) + 1e-6
-    flat_n = (flat - mu) / sd
-
-    clf = LogisticRegression(max_iter=300, C=1.0)
-    clf.fit(flat_n[idx], grid_labels.reshape(-1)[idx])
-    classes = clf.classes_.astype(np.uint8)
-    proba = clf.predict_proba(flat_n)
-    prob_grid = proba.reshape(gh, gw, proba.shape[1]).astype(np.float32)
-    h0, w0 = label_mask.shape
-
-    if refine:
-        try:
-            return _refine_contours(prob_grid, classes, arr_rgb, (h0, w0))
-        except Exception:
-            pass  # repli sur le plus proche voisin ci-dessous
-
-    # Repli : prédiction par patch ré-échantillonnée au plus proche voisin.
-    pred_grid = classes[prob_grid.argmax(axis=2)]
-    yi = np.clip((np.arange(h0) / h0 * gh).astype(int), 0, gh - 1)
-    xi = np.clip((np.arange(w0) / w0 * gw).astype(int), 0, gw - 1)
-    return pred_grid[np.ix_(yi, xi)].astype(np.uint8)
+    grid_feats = extract_grid_features(arr_rgb)
+    return _segment_from_features(
+        grid_feats, arr_rgb, label_mask, sensitivity=sensitivity, detail=detail,
+        min_lesion_frac=min_lesion_frac, round_disc=round_disc,
+        disc_label=disc_label, lesion_label=lesion_label)

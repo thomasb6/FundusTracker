@@ -1,7 +1,8 @@
 """Tests du backend de segmentation par modèle de fondation.
 
-Les tests qui nécessitent torch se sautent automatiquement si torch n'est pas
-installé (CI / image cœur), pour ne pas exiger la dépendance lourde.
+Le cœur `_segment_from_features` et le post-traitement sont testables SANS torch
+(ils n'utilisent que numpy/opencv/skimage/sklearn), donc couverts en CI. Seuls
+les tests qui appellent l'encodeur DINOv2 se sautent si torch est absent.
 """
 import numpy as np
 import pytest
@@ -17,60 +18,78 @@ def test_backend_info_is_str():
     assert isinstance(fs.backend_info(), str) and fs.backend_info()
 
 
-def test_labels_to_grid_majority_vote():
-    # Quadrants distincts → projection correcte sur une grille 2x2.
-    lab = np.zeros((28, 28), dtype=np.uint8)
-    lab[0:14, 0:14] = 2
-    lab[0:14, 14:28] = 3
-    grid = fs._labels_to_grid(lab, 2, 2)
-    assert grid[0, 0] == 2
-    assert grid[0, 1] == 3
-    assert grid[1, 0] == 0  # aucun pixel marqué dans ce quadrant
-
-
-def test_refine_contours_snaps_to_image_edges():
-    # Raffinement testable sans torch (cv2 + skimage uniquement).
+# ── Cœur du pipeline (sans torch) ──────────────────────────────────────────────
+def _toy_inputs(n=80):
     # Image : moitié gauche sombre, moitié droite claire.
-    img = np.zeros((60, 60, 3), dtype=np.uint8)
-    img[:, 30:] = 200
-    classes = np.array([1, 2], dtype=np.uint8)
-    # Grille de probabilités grossière : classe 1 à gauche, classe 2 à droite.
-    pg = np.zeros((4, 4, 2), dtype=np.float32)
-    pg[:, :2, 0] = 0.9; pg[:, :2, 1] = 0.1
-    pg[:, 2:, 0] = 0.1; pg[:, 2:, 1] = 0.9
-    out = fs._refine_contours(pg, classes, img, (60, 60))
-    assert out.shape == (60, 60)
-    assert set(np.unique(out)).issubset({1, 2})
-    # La frontière suit le bord de l'image (milieu), pas la grille grossière.
-    assert (out[:, :30] == 1).mean() > 0.7
-    assert (out[:, 30:] == 2).mean() > 0.7
+    img = np.zeros((n, n, 3), dtype=np.uint8)
+    img[:, n // 2:] = 200
+    # Features de grille : valeurs distinctes gauche/droite (sémantique simulée).
+    g = 6
+    gf = np.zeros((g, g, 4), dtype=np.float32)
+    gf[:, : g // 2] = [1, 0, 0, 0]
+    gf[:, g // 2:] = [0, 1, 0, 0]
+    # Traits : classe 2 à gauche, classe 3 à droite.
+    lab = np.zeros((n, n), dtype=np.uint8)
+    lab[n // 2 - 3:n // 2 + 3, 5:11] = 2
+    lab[n // 2 - 3:n // 2 + 3, n - 11:n - 5] = 3
+    return gf, img, lab
 
 
-@pytest.mark.skipif(not fs.available(), reason="torch not installed")
-def test_segment_separates_regions():
-    rng = np.random.default_rng(0)
-    img = (np.ones((300, 300, 3)) * 40 + rng.normal(0, 5, (300, 300, 3))).clip(0, 255).astype("uint8")
-    yy, xx = np.mgrid[0:300, 0:300]
-    disc = (yy - 150) ** 2 + (xx - 150) ** 2 < 40 ** 2
-    img[disc] = [220, 200, 180]
-    spot = (yy - 80) ** 2 + (xx - 210) ** 2 < 25 ** 2
-    img[spot] = [200, 60, 60]
-    lab = np.zeros((300, 300), "uint8")
-    lab[148:152, 148:152] = 1
-    lab[78:82, 208:212] = 2
-    lab[10:14, 10:14] = 3
-    pred = fs.segment(img, lab)
-    assert pred.shape == (300, 300)
-    assert set(np.unique(pred)).issubset({1, 2, 3})
-    # Les features de fondation doivent retrouver disque et tache.
-    assert ((pred == 1) & disc).sum() / disc.sum() > 0.5
-    assert ((pred == 2) & spot).sum() / spot.sum() > 0.5
+def test_segment_from_features_separates_halves():
+    gf, img, lab = _toy_inputs()
+    out = fs._segment_from_features(gf, img, lab, round_disc=False)
+    assert out.shape == img.shape[:2]
+    assert set(np.unique(out)).issubset({2, 3})
+    h, w = out.shape
+    assert (out[:, : w // 2] == 2).mean() > 0.7
+    assert (out[:, w // 2:] == 3).mean() > 0.7
 
 
-@pytest.mark.skipif(not fs.available(), reason="torch not installed")
-def test_segment_raises_on_single_label():
-    img = np.zeros((100, 100, 3), "uint8")
-    lab = np.zeros((100, 100), "uint8")
-    lab[10:14, 10:14] = 1  # une seule classe
+def test_segment_from_features_raises_on_single_label():
+    gf, img, lab = _toy_inputs()
+    lab[lab == 3] = 0  # une seule classe restante
     with pytest.raises(ValueError):
-        fs.segment(img, lab)
+        fs._segment_from_features(gf, img, lab)
+
+
+def test_sensitivity_grows_lesion():
+    gf, img, lab = _toy_inputs()
+    low = fs._segment_from_features(gf, img, lab, sensitivity=0.2, round_disc=False)
+    high = fs._segment_from_features(gf, img, lab, sensitivity=0.9, round_disc=False)
+    assert (high == 2).sum() >= (low == 2).sum()
+
+
+# ── Post-traitement ────────────────────────────────────────────────────────────
+def test_postprocess_removes_small_lesions():
+    pix = np.full((100, 100), 3, dtype=np.uint8)
+    pix[10:40, 10:40] = 2          # grande lésion
+    pix[80, 80] = 2                # speck isolé
+    out = fs._postprocess(pix, np.array([2, 3], np.uint8), min_size=50,
+                          round_disc=False, disc_label=1, lesion_label=2)
+    assert out[25, 25] == 2        # grande lésion conservée
+    assert out[80, 80] == 3        # speck retiré
+
+
+def test_postprocess_rounds_optic_disc():
+    # Disque « en croix » irrégulier → l'a priori doit le régulariser (ellipse,
+    # composante unique, surface remplie).
+    pix = np.full((120, 120), 3, dtype=np.uint8)
+    pix[50:70, 20:100] = 1
+    pix[20:100, 50:70] = 1
+    out = fs._postprocess(pix, np.array([1, 3], np.uint8), min_size=0,
+                          round_disc=True, disc_label=1, lesion_label=2)
+    from scipy import ndimage as ndi
+    _, ncc = ndi.label(out == 1)
+    assert ncc == 1                       # une seule composante (pas une croix)
+    assert (out == 1).sum() > (pix == 1).sum()  # ellipse pleine ⊇ la croix
+
+
+def test_superpixel_dino_shape():
+    seg = np.array([[0, 0, 1, 1], [0, 0, 1, 1], [2, 2, 3, 3], [2, 2, 3, 3]])
+    grid = np.random.RandomState(0).rand(2, 2, 5).astype(np.float32)
+    gci = np.array([[0, 0, 1, 1], [0, 0, 1, 1], [2, 2, 3, 3], [2, 2, 3, 3]])
+    sp = fs._superpixel_dino(seg, 4, gci, grid)
+    assert sp.shape == (4, 5)
+
+# L'intégration de l'encodeur DINOv2 (torch) est vérifiée hors tests, dans le
+# conteneur Linux (docker exec) — torch n'est pas requis pour la CI.
