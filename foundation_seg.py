@@ -130,7 +130,33 @@ def _labels_to_grid(label_mask, gh, gw):
     return grid
 
 
-def segment(arr_rgb, label_mask):
+def _refine_contours(prob_grid, classes, image_rgb, out_hw):
+    """Affine les contours : probabilités ré-échantillonnées en bilinéaire puis
+    moyennées par superpixel SLIC (les frontières suivent les bords de l'image).
+    Supprime l'aspect « en blocs » dû à la résolution des patchs."""
+    import cv2
+    from skimage.segmentation import slic
+
+    h0, w0 = out_hw
+    prob_full = cv2.resize(prob_grid, (w0, h0), interpolation=cv2.INTER_LINEAR)
+    if prob_full.ndim == 2:
+        prob_full = prob_full[..., None]
+
+    n_seg = int(np.clip((h0 * w0) // 1500, 400, 2500))
+    seg = slic(image_rgb, n_segments=n_seg, compactness=15,
+               start_label=0, channel_axis=-1)
+    nseg = int(seg.max()) + 1
+    k = prob_full.shape[2]
+    flat_seg = seg.reshape(-1)
+    sums = np.zeros((nseg, k), dtype=np.float64)
+    np.add.at(sums, flat_seg, prob_full.reshape(-1, k))
+    counts = np.bincount(flat_seg, minlength=nseg).reshape(-1, 1)
+    means = sums / np.maximum(counts, 1)
+    sp_label = classes[means.argmax(axis=1)]
+    return sp_label[flat_seg].reshape(h0, w0).astype(np.uint8)
+
+
+def segment(arr_rgb, label_mask, refine=True):
     """Segmente l'image à partir des traits.
 
     arr_rgb : HxWx3 uint8 ; label_mask : HxW (0 = non marqué, 1..K = classes).
@@ -160,11 +186,19 @@ def segment(arr_rgb, label_mask):
 
     clf = LogisticRegression(max_iter=300, C=1.0)
     clf.fit(flat_n[idx], grid_labels.reshape(-1)[idx])
-    pred_grid = clf.predict(flat_n).reshape(gh, gw).astype(np.uint8)
-
-    # Ré-échantillonnage vers la résolution image (plus proche voisin).
+    classes = clf.classes_.astype(np.uint8)
+    proba = clf.predict_proba(flat_n)
+    prob_grid = proba.reshape(gh, gw, proba.shape[1]).astype(np.float32)
     h0, w0 = label_mask.shape
+
+    if refine:
+        try:
+            return _refine_contours(prob_grid, classes, arr_rgb, (h0, w0))
+        except Exception:
+            pass  # repli sur le plus proche voisin ci-dessous
+
+    # Repli : prédiction par patch ré-échantillonnée au plus proche voisin.
+    pred_grid = classes[prob_grid.argmax(axis=2)]
     yi = np.clip((np.arange(h0) / h0 * gh).astype(int), 0, gh - 1)
     xi = np.clip((np.arange(w0) / w0 * gw).astype(int), 0, gw - 1)
-    pred_full = pred_grid[np.ix_(yi, xi)]
-    return pred_full.astype(np.uint8)
+    return pred_grid[np.ix_(yi, xi)].astype(np.uint8)

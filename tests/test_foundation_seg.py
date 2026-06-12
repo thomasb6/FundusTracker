@@ -28,6 +28,24 @@ def test_labels_to_grid_majority_vote():
     assert grid[1, 0] == 0  # aucun pixel marqué dans ce quadrant
 
 
+def test_refine_contours_snaps_to_image_edges():
+    # Raffinement testable sans torch (cv2 + skimage uniquement).
+    # Image : moitié gauche sombre, moitié droite claire.
+    img = np.zeros((60, 60, 3), dtype=np.uint8)
+    img[:, 30:] = 200
+    classes = np.array([1, 2], dtype=np.uint8)
+    # Grille de probabilités grossière : classe 1 à gauche, classe 2 à droite.
+    pg = np.zeros((4, 4, 2), dtype=np.float32)
+    pg[:, :2, 0] = 0.9; pg[:, :2, 1] = 0.1
+    pg[:, 2:, 0] = 0.1; pg[:, 2:, 1] = 0.9
+    out = fs._refine_contours(pg, classes, img, (60, 60))
+    assert out.shape == (60, 60)
+    assert set(np.unique(out)).issubset({1, 2})
+    # La frontière suit le bord de l'image (milieu), pas la grille grossière.
+    assert (out[:, :30] == 1).mean() > 0.7
+    assert (out[:, 30:] == 2).mean() > 0.7
+
+
 @pytest.mark.skipif(not fs.available(), reason="torch not installed")
 def test_segment_separates_regions():
     rng = np.random.default_rng(0)
