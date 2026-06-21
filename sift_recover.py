@@ -71,10 +71,18 @@ def compute_homography(ref_path: str, target_path: str) -> np.ndarray:
     src_pts = np.float32([kp2[m.trainIdx].pt for m in good]).reshape(-1, 1, 2)
     dst_pts = np.float32([kp1[m.queryIdx].pt for m in good]).reshape(-1, 1, 2)
 
-    M, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
+    # Similarity transform (rotation + scale + translation, 4 DOF): the same
+    # eye across dates only differs by a similarity. A full 8-DOF homography
+    # overfits the few matches of temporally distant images and yields a
+    # degenerate warp. M stays 3×3 so the inverse-mapping code is unchanged.
+    A, mask = cv2.estimateAffinePartial2D(
+        src_pts, dst_pts, method=cv2.RANSAC, ransacReprojThreshold=5.0
+    )
 
-    if M is None:
-        raise RuntimeError("Homography computation failed (findHomography returned None).")
+    if A is None:
+        raise RuntimeError("Similarity estimation failed (estimateAffinePartial2D returned None).")
+
+    M = np.vstack([A, [0.0, 0.0, 1.0]])
 
     n_inliers = int(mask.sum()) if mask is not None else len(good)
     print(f"  SIFT: {len(good)} good matches, {n_inliers} inliers")

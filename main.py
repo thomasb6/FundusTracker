@@ -654,10 +654,20 @@ def align_images_sift_simple(ref_img_b64, target_img_b64):
         src_pts = np.float32([kp2[m.trainIdx].pt for m in good]).reshape(-1, 1, 2)
         dst_pts = np.float32([kp1[m.queryIdx].pt for m in good]).reshape(-1, 1, 2)
 
-        M, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
+        # Recalage par similitude (rotation + échelle + translation, 4 DDL).
+        # Deux photos du même œil à des dates différentes ne diffèrent que par
+        # une similitude ; une homographie 8 DDL surajuste sur les rares
+        # correspondances des images éloignées dans le temps et produit un
+        # warp dégénéré (effet « éventail »). M reste une 3×3 pour rester
+        # compatible avec warpPerspective et transform_shapes_to_original.
+        A, mask = cv2.estimateAffinePartial2D(
+            src_pts, dst_pts, method=cv2.RANSAC, ransacReprojThreshold=5.0
+        )
 
-        if M is None:
+        if A is None:
             return None, "Transformation géométrique impossible."
+
+        M = np.vstack([A, [0.0, 0.0, 1.0]])
 
         h, w, _ = img_ref.shape
 
