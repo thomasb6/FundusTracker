@@ -735,21 +735,28 @@ def align_images_from_landmarks(ref_img_b64, target_img_b64, src_pts, dst_pts):
 def landmark_figure(img_b64, points, color):
     """Figure Plotly d'une image avec ses points appariés numérotés.
 
-    L'image est sous-échantillonnée pour l'affichage mais les axes restent en
-    coordonnées pixel pleine résolution -> les clics (clickData) renvoient
-    directement des coordonnées plein format, utilisables tel quel pour le warp.
+    L'image est portée par une trace go.Image (et NON un layout image) : c'est
+    indispensable pour que clickData se déclenche sur tout le fond — un
+    add_layout_image n'émet aucun événement de clic. L'image est
+    sous-échantillonnée pour l'affichage, mais dx/dy remettent l'axe en
+    coordonnées pixel pleine résolution -> les clics renvoient directement des
+    coordonnées plein format, utilisables tel quel pour le warp.
     """
     img = base64_to_cv2(img_b64)
     if img is None:
         return go.Figure()
     h, w = img.shape[:2]
     scale = min(1.0, 1000.0 / max(h, w))
-    disp = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA) if scale < 1.0 else img
-    src = cv2_to_base64(disp)
+    if scale < 1.0:
+        disp = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+    else:
+        disp = img
+    dh, dw = disp.shape[:2]
+    disp_rgb = cv2.cvtColor(disp, cv2.COLOR_BGR2RGB)
     fig = go.Figure()
-    fig.add_layout_image(dict(
-        source=src, xref="x", yref="y", x=0, y=0, sizex=w, sizey=h,
-        xanchor="left", yanchor="top", sizing="stretch", layer="below",
+    # go.Image : trace cliquable ; dx/dy mappent les pixels affichés -> pixels plein format
+    fig.add_trace(go.Image(
+        z=disp_rgb, x0=0, y0=0, dx=w / dw, dy=h / dh, hoverinfo="none",
     ))
     pts = points or []
     fig.add_trace(go.Scatter(
