@@ -679,6 +679,95 @@ def align_images_sift_simple(ref_img_b64, target_img_b64):
         return None, str(e), None
 
 
+def align_images_from_landmarks(ref_img_b64, target_img_b64, src_pts, dst_pts):
+    """Recalage manuel : estime une transformation à partir de points appariés
+    placés par l'utilisateur sur l'image cible (src_pts) et la référence (dst_pts).
+
+    Utilisé en repli quand le SIFT automatique laisse un résidu (typiquement en
+    périphérie). Comme les correspondances sont fournies à la main et toutes
+    fiables, on ajuste au moindre carré (pas de RANSAC) :
+      - >= 3 paires  -> affine complète 6 DDL (capte l'anisotropie périphérique)
+      - exactement 2 -> similitude 4 DDL (rotation + échelle + translation)
+    M reste une 3×3 -> 100 % compatible avec warpPerspective et
+    transform_shapes_to_original (les annotations reviennent en repère original,
+    où l'aire est mesurée ; la calibration disque restant relative, le recalage
+    global ne biaise pas les surfaces).
+    """
+    try:
+        img_ref = base64_to_cv2(ref_img_b64)
+        img_target = base64_to_cv2(target_img_b64)
+        if img_ref is None or img_target is None:
+            return None, "Erreur de chargement des images.", None
+
+        src = np.asarray(src_pts, dtype=np.float64)   # points sur l'image cible
+        dst = np.asarray(dst_pts, dtype=np.float64)   # points sur la référence
+        if src.shape != dst.shape or src.ndim != 2 or src.shape[1] != 2:
+            return None, "Points invalides.", None
+        n = src.shape[0]
+        if n < 2:
+            return None, "Au moins 2 points appariés sont requis.", None
+
+        if n >= 3:
+            # affine 6 DDL au moindre carré : [x y 1] @ params = [x' y']
+            P = np.column_stack([src, np.ones(n)])          # (n,3)
+            sol, *_ = np.linalg.lstsq(P, dst, rcond=None)   # (3,2)
+            A = sol.T                                        # (2,3)
+        else:
+            # 2 points -> similitude exacte (rot + échelle + translation)
+            A2, _ = cv2.estimateAffinePartial2D(
+                src.reshape(-1, 1, 2).astype(np.float32),
+                dst.reshape(-1, 1, 2).astype(np.float32),
+                method=cv2.LMEDS,
+            )
+            if A2 is None:
+                return None, "Estimation impossible avec ces 2 points.", None
+            A = A2
+
+        M = np.vstack([A, [0.0, 0.0, 1.0]])
+        h, w, _ = img_ref.shape
+        aligned_img = cv2.warpPerspective(img_target, M, (w, h))
+        return cv2_to_base64(aligned_img), "Success", M.tolist()
+
+    except Exception as e:
+        return None, str(e), None
+
+
+def landmark_figure(img_b64, points, color):
+    """Figure Plotly d'une image avec ses points appariés numérotés.
+
+    L'image est sous-échantillonnée pour l'affichage mais les axes restent en
+    coordonnées pixel pleine résolution -> les clics (clickData) renvoient
+    directement des coordonnées plein format, utilisables tel quel pour le warp.
+    """
+    img = base64_to_cv2(img_b64)
+    if img is None:
+        return go.Figure()
+    h, w = img.shape[:2]
+    scale = min(1.0, 1000.0 / max(h, w))
+    disp = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA) if scale < 1.0 else img
+    src = cv2_to_base64(disp)
+    fig = go.Figure()
+    fig.add_layout_image(dict(
+        source=src, xref="x", yref="y", x=0, y=0, sizex=w, sizey=h,
+        xanchor="left", yanchor="top", sizing="stretch", layer="below",
+    ))
+    pts = points or []
+    fig.add_trace(go.Scatter(
+        x=[p[0] for p in pts], y=[p[1] for p in pts],
+        mode="markers+text", text=[str(i + 1) for i in range(len(pts))],
+        textposition="top center", hoverinfo="none",
+        marker=dict(size=13, color=color, line=dict(width=1.5, color="white")),
+        textfont=dict(color="white", size=14),
+    ))
+    fig.update_xaxes(visible=False, range=[0, w], constrain="domain")
+    fig.update_yaxes(visible=False, range=[h, 0], scaleanchor="x", scaleratio=1)
+    fig.update_layout(
+        margin=dict(l=0, r=0, t=0, b=0), height=340, dragmode=False,
+        showlegend=False, plot_bgcolor="#05070a", paper_bgcolor="#05070a",
+    )
+    return fig
+
+
 def layout_about(language):
     _ = get_translator(language)
     def create_profile_card(name, title, affiliations, bio, image_name, links):
@@ -1744,6 +1833,73 @@ def serve_layout(language):
                                                 dcc.Download(
                                                     id="download-cropped-image"
                                                 ),
+                                                html.Hr(),
+                                                dbc.Button(
+                                                    [
+                                                        html.I(className="fas fa-hand-pointer me-2"),
+                                                        _("Pas satisfait ? Ajustement manuel par points"),
+                                                    ],
+                                                    id="enter-manual-align-btn",
+                                                    color="warning",
+                                                    outline=True,
+                                                    className="w-100 mb-2",
+                                                ),
+                                                dbc.Collapse(
+                                                    [
+                                                        html.Small(
+                                                            _("Cliquez un repère sur la RÉFÉRENCE (gauche) puis le point correspondant sur l'IMAGE À ALIGNER (droite). Placez au moins 3 paires, en privilégiant la périphérie. Les paires sont numérotées."),
+                                                            className="text-muted d-block mb-2",
+                                                        ),
+                                                        dbc.Row(
+                                                            [
+                                                                dbc.Col(
+                                                                    [
+                                                                        html.Small(_("Référence"), className="fw-bold d-block text-center"),
+                                                                        dcc.Graph(
+                                                                            id="manual-ref-graph",
+                                                                            config={"displayModeBar": False, "scrollZoom": False},
+                                                                            style={"height": "340px"},
+                                                                        ),
+                                                                    ],
+                                                                    width=6,
+                                                                ),
+                                                                dbc.Col(
+                                                                    [
+                                                                        html.Small(_("Image à aligner"), className="fw-bold d-block text-center"),
+                                                                        dcc.Graph(
+                                                                            id="manual-target-graph",
+                                                                            config={"displayModeBar": False, "scrollZoom": False},
+                                                                            style={"height": "340px"},
+                                                                        ),
+                                                                    ],
+                                                                    width=6,
+                                                                ),
+                                                            ],
+                                                        ),
+                                                        html.Div(id="manual-align-status", className="my-2"),
+                                                        dbc.ButtonGroup(
+                                                            [
+                                                                dbc.Button(
+                                                                    [html.I(className="fas fa-undo me-1"), _("Annuler dernier point")],
+                                                                    id="manual-undo-btn", color="secondary", outline=True, size="sm",
+                                                                ),
+                                                                dbc.Button(
+                                                                    [html.I(className="fas fa-trash me-1"), _("Réinitialiser")],
+                                                                    id="manual-reset-btn", color="secondary", outline=True, size="sm",
+                                                                ),
+                                                                dbc.Button(
+                                                                    [html.I(className="fas fa-magic me-1"), _("Aligner avec ces points")],
+                                                                    id="manual-compute-btn", color="primary", size="sm",
+                                                                ),
+                                                            ],
+                                                            className="w-100 mb-2",
+                                                        ),
+                                                    ],
+                                                    id="manual-align-collapse",
+                                                    is_open=False,
+                                                ),
+                                                dcc.Store(id="crop-images-store"),
+                                                dcc.Store(id="manual-landmarks-store", data={"ref": [], "target": []}),
                                             ]
                                         ),
                                         dbc.ModalFooter(
@@ -8135,6 +8291,148 @@ def update_crop_ref_status(dropdown_val, upload_filename, _open):
             color="success", className="py-1 mb-0", style={"fontSize": "0.85rem"},
         )
     return ""
+
+
+def _manual_landmark_status(lm, language):
+    """Petit bandeau d'état du nombre de points placés."""
+    _ = get_translator(language)
+    nr, nt = len(lm.get("ref", [])), len(lm.get("target", []))
+    pairs = min(nr, nt)
+    if nr == nt:
+        if pairs == 0:
+            return dbc.Alert(_("Aucun point. Cliquez d'abord sur la référence."),
+                             color="secondary", className="py-1 mb-0", style={"fontSize": "0.8rem"})
+        color = "success" if pairs >= 3 else "warning"
+        msg = _("paires complètes") if pairs >= 3 else _("paires (il en faut au moins 3)")
+        return dbc.Alert(f"{pairs} {msg}", color=color, className="py-1 mb-0", style={"fontSize": "0.8rem"})
+    # un côté en avance : on attend le point correspondant
+    side = _("l'image à aligner (droite)") if nr > nt else _("la référence (gauche)")
+    return dbc.Alert(_("Placez le point n°{n} sur {side}.").format(n=pairs + 1, side=side),
+                     color="info", className="py-1 mb-0", style={"fontSize": "0.8rem"})
+
+
+@app.callback(
+    Output("manual-align-collapse", "is_open"),
+    Output("crop-images-store", "data"),
+    Output("manual-landmarks-store", "data"),
+    Output("manual-ref-graph", "figure"),
+    Output("manual-target-graph", "figure"),
+    Output("manual-align-status", "children"),
+    Input("enter-manual-align-btn", "n_clicks"),
+    State("crop-ref-dropdown", "value"),
+    State("crop-ref-upload", "contents"),
+    State("file-dropdown", "value"),
+    State("uploaded-image-store", "data"),
+    State("language-store", "data"),
+    prevent_initial_call=True,
+)
+def enter_manual_align_mode(n_clicks, ref_drop, ref_up, main_drop, main_up, language):
+    _ = get_translator(language)
+    if not n_clicks:
+        raise dash.exceptions.PreventUpdate
+
+    target_b64 = image_to_base64(main_up if main_up else main_drop)
+    ref_b64 = ref_up if ref_up else (image_to_base64(ref_drop) if ref_drop else None)
+
+    if not target_b64 or not ref_b64:
+        warn = dbc.Alert(
+            _("Choisissez d'abord une image principale et une référence ci-dessus."),
+            color="warning", className="py-1 mb-0", style={"fontSize": "0.8rem"},
+        )
+        return False, dash.no_update, dash.no_update, dash.no_update, dash.no_update, warn
+
+    lm = {"ref": [], "target": []}
+    fig_ref = landmark_figure(ref_b64, [], "#22c55e")
+    fig_tgt = landmark_figure(target_b64, [], "#f97316")
+    return (True, {"ref": ref_b64, "target": target_b64}, lm, fig_ref, fig_tgt,
+            _manual_landmark_status(lm, language))
+
+
+@app.callback(
+    Output("manual-landmarks-store", "data", allow_duplicate=True),
+    Output("manual-ref-graph", "figure", allow_duplicate=True),
+    Output("manual-target-graph", "figure", allow_duplicate=True),
+    Output("manual-align-status", "children", allow_duplicate=True),
+    Input("manual-ref-graph", "clickData"),
+    Input("manual-target-graph", "clickData"),
+    Input("manual-undo-btn", "n_clicks"),
+    Input("manual-reset-btn", "n_clicks"),
+    State("manual-landmarks-store", "data"),
+    State("crop-images-store", "data"),
+    State("language-store", "data"),
+    prevent_initial_call=True,
+)
+def edit_manual_landmarks(click_ref, click_tgt, n_undo, n_reset, lm, images, language):
+    if not images:
+        raise dash.exceptions.PreventUpdate
+    lm = lm or {"ref": [], "target": []}
+    lm = {"ref": list(lm.get("ref", [])), "target": list(lm.get("target", []))}
+    trig = ctx.triggered_id
+
+    if trig == "manual-reset-btn":
+        lm = {"ref": [], "target": []}
+    elif trig == "manual-undo-btn":
+        # retire le point en trop, sinon le dernier point apparié
+        if len(lm["ref"]) > len(lm["target"]) and lm["ref"]:
+            lm["ref"].pop()
+        elif len(lm["target"]) > len(lm["ref"]) and lm["target"]:
+            lm["target"].pop()
+        elif lm["target"]:
+            lm["target"].pop(); lm["ref"].pop()
+    elif trig == "manual-ref-graph" and click_ref and click_ref.get("points"):
+        p = click_ref["points"][0]
+        lm["ref"].append([float(p["x"]), float(p["y"])])
+    elif trig == "manual-target-graph" and click_tgt and click_tgt.get("points"):
+        p = click_tgt["points"][0]
+        lm["target"].append([float(p["x"]), float(p["y"])])
+
+    fig_ref = landmark_figure(images["ref"], lm["ref"], "#22c55e")
+    fig_tgt = landmark_figure(images["target"], lm["target"], "#f97316")
+    return lm, fig_ref, fig_tgt, _manual_landmark_status(lm, language)
+
+
+@app.callback(
+    Output("crop-result-display", "children", allow_duplicate=True),
+    Output("crop-result-temp-store", "data", allow_duplicate=True),
+    Output("apply-cropped-img-btn", "disabled", allow_duplicate=True),
+    Output("download-cropped-img-btn", "disabled", allow_duplicate=True),
+    Output("manual-align-status", "children", allow_duplicate=True),
+    Input("manual-compute-btn", "n_clicks"),
+    State("manual-landmarks-store", "data"),
+    State("crop-images-store", "data"),
+    State("language-store", "data"),
+    prevent_initial_call=True,
+)
+def compute_manual_align(n_clicks, lm, images, language):
+    _ = get_translator(language)
+    if not n_clicks or not images:
+        raise dash.exceptions.PreventUpdate
+    lm = lm or {"ref": [], "target": []}
+    ref_pts, tgt_pts = lm.get("ref", []), lm.get("target", [])
+    n = min(len(ref_pts), len(tgt_pts))
+    if n < 3:
+        warn = dbc.Alert(_("Placez au moins 3 paires de points avant d'aligner."),
+                         color="warning", className="py-1 mb-0", style={"fontSize": "0.8rem"})
+        return dash.no_update, dash.no_update, dash.no_update, dash.no_update, warn
+
+    aligned_b64, msg, M_list = align_images_from_landmarks(
+        images["ref"], images["target"], tgt_pts[:n], ref_pts[:n]
+    )
+    if not aligned_b64:
+        fail_label = _("Échec de l'alignement manuel")
+        err = dbc.Alert(f"{fail_label} : {msg}",
+                        color="danger", className="py-1 mb-0", style={"fontSize": "0.8rem"})
+        return dash.no_update, dash.no_update, dash.no_update, dash.no_update, err
+
+    preview = html.Div([
+        html.H6(_("Résultat de l'ajustement manuel :"), className="mt-2"),
+        html.Img(src=aligned_b64, style={"maxWidth": "100%", "maxHeight": "350px", "border": "2px solid #f97316"}),
+        dbc.Alert(_("Alignement manuel calculé sur {n} points. Cliquez « Utiliser cette image ».").format(n=n),
+                  color="success", className="mt-2 py-2"),
+    ])
+    ok = dbc.Alert(_("Aligné sur {n} points.").format(n=n), color="success",
+                   className="py-1 mb-0", style={"fontSize": "0.8rem"})
+    return preview, {"image": aligned_b64, "M": M_list}, False, False, ok
 
 
 @app.callback(
